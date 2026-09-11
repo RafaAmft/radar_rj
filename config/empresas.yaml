@@ -1,0 +1,31 @@
+# ==============================================================================
+# Empresas-alvo da POC — Recuperação Judicial
+# ==============================================================================
+# Cada entrada deve conter: razão social, CNPJ, código CVM, ticker, slug
+# (slug = identificador curto usado como nome de pasta em data/raw/)
+
+janela_temporal:
+  inicio: 2018
+  fim: 2025
+
+empresas:
+  - razao_social: "Oi S.A. - Em Recuperação Judicial"
+    cnpj: "76535764000143"          # sem pontuação (formato CSV da CVM)
+    cnpj_formatado: "76.535.764/0001-43"
+    codigo_cvm: "11312"
+    ticker: "OIBR3"
+    slug: "oi"
+
+  - razao_social: "Americanas S.A. - Em Recuperação Judicial"
+    cnpj: "00776574000156"
+    cnpj_formatado: "00.776.574/0001-56"
+    codigo_cvm: "20990"
+    ticker: "AMER3"
+    slug: "americanas"
+
+  - razao_social: "Light S.A. - Em Recuperação Judicial"
+    cnpj: "03378521000175"
+    cnpj_formatado: "03.378.521/0001-75"
+    codigo_cvm: "01987"
+    ticker: "LIGT3"
+    slug: "light"

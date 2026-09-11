@@ -1,0 +1,32 @@
+# ==============================================================================
+# Fonte: e-SAJ TJSP — Consulta Processual (Scraping Best-Effort)
+# ==============================================================================
+# Scraping pontual de processos de Recuperação Judicial no e-SAJ do TJSP.
+# Implementação com Selenium headless + fallback automático para DataJud/CNJ.
+
+nome: "e-SAJ TJSP"
+descricao: >
+  Consulta pública nominal no e-SAJ do TJSP para localizar processos de
+  Recuperação Judicial das empresas-alvo. Tenta baixar PDFs de peças
+  processuais; se bloqueado (captcha, indisponibilidade), cai para fallback
+  com metadados do DataJud/CNJ.
+
+urls:
+  esaj_busca: "https://esaj.tjsp.jus.br/cpopg/open.do"
+  # Fallback: API pública do DataJud (CNJ) — só metadados, sem texto integral
+  datajud_api: "https://api-publica.datajud.cnj.jus.br/api_publica_tjsp/_search"
+
+# Classe processual a filtrar nos resultados
+classe_processual: "Recuperação Judicial"
+
+# Timeout em segundos para operações do Selenium
+selenium_timeout: 30
+
+# Delay entre ações no e-SAJ (evitar bloqueio)
+delay_entre_acoes: 2.0
+
+# Número máximo de tentativas antes de acionar fallback
+max_tentativas_scraping: 2
+
+# Saída relativa a data/raw/<empresa>/
+saida_dir: "judiciario/rj_esaj"

@@ -1,0 +1,24 @@
+# ==============================================================================
+# Fonte: ITD — Iudicium Textum Dataset (UFPR/C3SL)
+# ==============================================================================
+# Amostra estrutural de acórdãos do STF para treino do classificador.
+# Sem vínculo com empresa específica — serve como proxy de linguagem jurídica.
+
+nome: "ITD Acórdãos STF"
+descricao: >
+  Dataset acadêmico aberto da UFPR com +41 mil acórdãos do STF em texto integral,
+  segmentados em ementa, relatório e votos. Usamos os JSONs pré-processados
+  (não o tar.gz de 18 GB) para extrair uma amostra estrutural.
+
+urls:
+  # JSON de relatórios (153 MB) — formato streaming, parse com ijson
+  relatorios: "http://dadosabertos.c3sl.ufpr.br/acordaos/json/AcordaosRelatorios.json"
+  # Alternativas (não usadas na POC, mas documentadas):
+  # votos: "http://dadosabertos.c3sl.ufpr.br/acordaos/json/AcordaosVotos.json"       # 353 MB
+  # documentos: "http://dadosabertos.c3sl.ufpr.br/acordaos/json/DocumentosAcordaos.json" # 2.5 GB
+
+# Número de acórdãos a amostrar (diversidade sem overhead).
+tamanho_amostra: 200
+
+# Saída relativa a data/raw/
+saida_dir: "_amostra_estrutural/itd_acordaos"

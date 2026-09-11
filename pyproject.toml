@@ -1,0 +1,36 @@
+[project]
+name = "catalogador"
+version = "0.1.0"
+description = "Radar de Oportunidades em Recuperação de Ativos — Módulo de Ingestão"
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.31",
+    "pandas>=2.0",
+    "pyyaml>=6.0",
+    "tqdm>=4.65",
+    "ijson>=3.2",
+]
+
+[project.optional-dependencies]
+scraping = [
+    "selenium>=4.15",
+]
+dev = [
+    "pytest>=7.4",
+    "pytest-mock>=3.12",
+    "responses>=0.24",
+]
+
+[project.scripts]
+ingerir = "src.ingestao.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["src*", "config*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

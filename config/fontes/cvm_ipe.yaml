@@ -1,0 +1,39 @@
+# ==============================================================================
+# Fonte: CVM — Informações Periódicas e Eventuais (IPE)
+# ==============================================================================
+
+nome: "CVM IPE"
+descricao: >
+  Índice de documentos periódicos e eventuais das companhias abertas.
+  O ZIP anual contém um CSV com metadados e link para download de cada documento.
+
+urls:
+  base: "https://dados.cvm.gov.br/dados/CIA_ABERTA/DOC/IPE/DADOS/"
+  pattern: "ipe_cia_aberta_{ano}.zip"
+
+# Filtragem por código CVM (o CSV do IPE usa Codigo_CVM ou CD_CVM).
+campo_filtro: "Codigo_CVM"
+
+# Campo que contém a URL do documento PDF para download.
+campo_link: "Link_Download"
+
+# Campo com a data de referência do documento.
+campo_data: "Data_Referencia"
+
+# Campo com a categoria do documento.
+campo_categoria: "Categoria"
+
+# Categorias de interesse (filtro aplicado sobre Categoria/CATEG_DOC).
+categorias:
+  - "Fato Relevante"
+  - "Comunicado ao Mercado"
+  - "Aviso aos Acionistas"
+  - "Assembleia"
+  - "Informações de Companhias em Recuperação Judicial ou Extrajudicial"
+
+# Delay em segundos entre downloads de PDFs (respeitar portal).
+delay_entre_downloads: 1.0
+
+# Saída relativa a data/raw/<empresa>/
+saida_dir: "cvm/ipe"
+

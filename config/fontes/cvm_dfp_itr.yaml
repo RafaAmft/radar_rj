@@ -1,0 +1,39 @@
+# ==============================================================================
+# Fonte: CVM — Demonstrações Financeiras Padronizadas (DFP) e
+#        Informações Trimestrais (ITR)
+# ==============================================================================
+
+nome: "CVM DFP/ITR"
+descricao: >
+  Download dos ZIPs anuais consolidados do Portal de Dados Abertos da CVM,
+  extração dos CSVs internos e filtragem por CNPJ das empresas-alvo.
+
+urls:
+  dfp_base: "https://dados.cvm.gov.br/dados/CIA_ABERTA/DOC/DFP/DADOS/"
+  itr_base: "https://dados.cvm.gov.br/dados/CIA_ABERTA/DOC/ITR/DADOS/"
+  dfp_pattern: "dfp_cia_aberta_{ano}.zip"
+  itr_pattern: "itr_cia_aberta_{ano}.zip"
+
+# Campo usado para filtrar as linhas do CSV pelo CNPJ da empresa.
+# O CNPJ nos CSVs da CVM vem sem pontuação (14 dígitos).
+campo_filtro: "CNPJ_CIA"
+
+# Tipos de demonstração financeira a extrair dos CSVs internos do ZIP.
+# Cada ZIP contém múltiplos CSVs nomeados como:
+#   dfp_cia_aberta_BPA_con_2024.csv  (BPA consolidado)
+#   dfp_cia_aberta_BPA_ind_2024.csv  (BPA individual)
+# Extraímos ambos (con + ind).
+tipos_demonstracao:
+  - "BPA"    # Balanço Patrimonial Ativo
+  - "BPP"    # Balanço Patrimonial Passivo
+  - "DRE"    # Demonstração do Resultado do Exercício
+  - "DFC_MI" # Demonstração dos Fluxos de Caixa (Método Indireto)
+  - "DFC_MD" # Demonstração dos Fluxos de Caixa (Método Direto)
+  - "DVA"    # Demonstração do Valor Adicionado
+  - "DMPL"   # Demonstração das Mutações do Patrimônio Líquido
+
+# Delay em segundos entre downloads de ZIPs (respeitar portal CVM).
+delay_entre_downloads: 1.0
+
+# Saída relativa a data/raw/<empresa>/
+saida_dir: "cvm/dfp_itr"
