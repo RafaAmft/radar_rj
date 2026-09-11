@@ -1,0 +1,127 @@
+# ==============================================================================
+# Catálogo de Administradores Judiciais (AJs) — Brasil
+# Radar de Oportunidades em Recuperação de Ativos
+# ==============================================================================
+# Mapeamento e Diagnóstico Técnico de Viabilidade dos Maiores AJs do Brasil.
+# Base Legal: Lei 11.101/2005 (Art. 22) - Publicidade Obrigatória de PRJs, QGCs e RMAs.
+# Diagnóstico Técnico realizado em: 2026-09-11
+# ==============================================================================
+
+administradores_judiciais:
+  - slug: "exm"
+    nome: "EXM Partners"
+    razao_social: "EXM Partners Assessoria Empresarial Ltda"
+    website: "https://www.exmpartners.com.br"
+    url_processos: "https://www.exmpartners.com.br/servicos/administracao-judicial"
+    estados_principais: ["SP", "MT", "GO", "MA", "MS", "PR"]
+    setores_destaque: ["Agronegócio", "Indústria", "Logística"]
+    status_integracao: "implementado"
+    viabilidade: "alta"
+    arquitetura: "HTML / PHP com Iframes Assíncronos"
+    barreiras: "Nenhuma (100% aberto, sem captcha, sem login)"
+    volume_identificado: "143 processos e mais de 60 PDFs por caso"
+    modulo: "src.ingestao.aj.exm"
+
+  - slug: "aj_ruiz"
+    nome: "AJ Ruiz Consultoria e Administração Judicial"
+    razao_social: "AJ Ruiz Consultoria e Administração Judicial Ltda"
+    website: "https://www.ajruiz.com.br"
+    url_processos: "https://www.ajruiz.com.br/processos"
+    estados_principais: ["SP", "Sudeste"]
+    setores_destaque: ["Agronegócio", "Varejo", "PMEs e Grandes Grupos SP"]
+    status_integracao: "recomendado_proximo"
+    viabilidade: "muito_alta"
+    arquitetura: "Drupal CMS (Diretório público aberto)"
+    barreiras: "Nenhuma (Zero login, zero captcha, PDFs diretos)"
+    volume_identificado: "2.764 PDFs diretos e mais de 1.100 seções de processos"
+
+  - slug: "kroll"
+    nome: "Kroll Restructuring Administration"
+    razao_social: "Kroll Associates Brasil Ltda"
+    website: "https://cases.ra.kroll.com"
+    url_processos: "https://cases.ra.kroll.com/oi/"
+    estados_principais: ["RJ", "SP", "Nacional"]
+    setores_destaque: ["Telecomunicações", "Grandes Grupos Econômicos", "Casos Sistêmicos"]
+    status_integracao: "planejado"
+    viabilidade: "media_alta"
+    arquitetura: "Plataforma RA Cases (Subdomínios dedicados por caso)"
+    barreiras: "Cloudflare WAF (requer headers e delays adequados)"
+    volume_identificado: "Centenas de dockets e peças em português e inglês"
+
+  - slug: "brizola_japur"
+    nome: "Brizola e Japur Administração Judicial"
+    razao_social: "Brizola e Japur Administração Judicial"
+    website: "https://brizolaejapur.com.br"
+    url_processos: "https://brizolaejapur.com.br"
+    estados_principais: ["RS", "SC", "PR"]
+    setores_destaque: ["Indústria", "Alimentos", "Cooperativas", "Varejo"]
+    status_integracao: "em_analise"
+    viabilidade: "media"
+    arquitetura: "WordPress / Cloudflare"
+    barreiras: "Requer descoberta da nova rota de processos após redesign"
+    volume_identificado: "Principal administrador judicial da Região Sul"
+
+  - slug: "inocencio_de_paula"
+    nome: "Inocêncio de Paula Sociedade de Advogados"
+    razao_social: "Inocêncio de Paula Sociedade de Advogados"
+    website: "http://inocenciodepaulaadvogados.com.br"
+    url_processos: "http://inocenciodepaulaadvogados.com.br"
+    estados_principais: ["MG", "SP", "BA", "GO"]
+    setores_destaque: ["Mineração", "Agronegócio", "Metalurgia", "Transportes"]
+    status_integracao: "bloqueado_login"
+    viabilidade: "baixa"
+    arquitetura: "Vue.js SPA"
+    barreiras: "Login Gate (/api/login - exige credenciais de credor)"
+    volume_identificado: "Grande acervo em MG, mas com barreira de autenticação"
+
+  - slug: "aj1"
+    nome: "AJ1 Administração Judicial"
+    razao_social: "AJ1 Administração Judicial Ltda"
+    website: "https://www.aj1.com.br"
+    url_processos: "https://www.aj1.com.br/processos"
+    estados_principais: ["SP", "MT"]
+    setores_destaque: ["Agronegócio", "Comércio", "Serviços"]
+    status_integracao: "bloqueado_login"
+    viabilidade: "baixa"
+    arquitetura: "Portal Web Customizado"
+    barreiras: "Login Gate (Exige cadastro/login prévio de credor para baixar peças)"
+    volume_identificado: "Muitos casos no Centro-Oeste e SP, mas fechado a credores"
+
+  - slug: "preserva_acao"
+    nome: "Preserva-Ação Administração Judicial"
+    razao_social: "Preserva-Ação Administração Judicial Ltda"
+    website: "https://preserva-acao.com.br"
+    url_processos: "https://www.psvar.com.br"
+    estados_principais: ["SP", "RJ", "PR", "RS"]
+    setores_destaque: ["Varejo", "Serviços", "Saúde", "Construção"]
+    status_integracao: "instavel_timeout"
+    viabilidade: "muito_baixa"
+    arquitetura: "Redirecionamento para psvar.com.br"
+    barreiras: "Servidor com timeout severo e conexão intermitente"
+    volume_identificado: "Indisponível no momento"
+
+  - slug: "alvarez_marsal"
+    nome: "Alvarez & Marsal Administração Judicial"
+    razao_social: "Alvarez & Marsal Consultoria em Administração Judicial Ltda"
+    website: "https://www.alvarezandmarsal.com"
+    url_processos: "https://www.alvarezandmarsal.com/pt-br/expertise/administracao-judicial"
+    estados_principais: ["SP", "RJ", "Nacional"]
+    setores_destaque: ["Mega-casos", "Siderurgia", "Óleo & Gás", "Varejo de Grande Porte"]
+    status_integracao: "bloqueado_waf"
+    viabilidade: "baixa"
+    arquitetura: "Cloudflare Enterprise WAF"
+    barreiras: "Retorna HTTP 403 Forbidden para requisições automatizadas"
+    volume_identificado: "Americanas, Samarco, etc. (Demanda browser emulado)"
+
+  - slug: "laspro"
+    nome: "Laspro Consultores"
+    razao_social: "Laspro Consultores Ltda"
+    website: "https://www.laspro.com.br"
+    url_processos: "https://www.lasproconsultores.com.br/processos/recuperacao-judicial"
+    estados_principais: ["SP", "RJ", "MG"]
+    setores_destaque: ["Grandes Casos Históricos", "Varejo", "Educação"]
+    status_integracao: "instavel_conexao"
+    viabilidade: "baixa"
+    arquitetura: "ASP.NET / IIS"
+    barreiras: "Connection reset / drops frequentes no servidor"
+    volume_identificado: "Portal de RJs instável"
