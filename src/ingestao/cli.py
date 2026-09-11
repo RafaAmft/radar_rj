@@ -21,6 +21,7 @@ import sys
 import time
 
 from src.ingestao import cvm_dfp_itr, cvm_ipe, esaj_tjsp, itd_acordaos
+from src.ingestao.aj import exm as aj_exm
 from src.ingestao.download import RAIZ_PROJETO, carregar_config_empresas
 
 # Carregar variáveis de ambiente de .env se existir
@@ -35,11 +36,12 @@ except ImportError:
 EXTRATORES = {
     "cvm-dfp": ("CVM DFP/ITR", cvm_dfp_itr),
     "cvm-ipe": ("CVM IPE", cvm_ipe),
+    "aj-exm": ("AJ EXM Partners", aj_exm),
     "itd": ("ITD Acórdãos", itd_acordaos),
     "esaj": ("e-SAJ TJSP", esaj_tjsp),
 }
 
-ORDEM_EXECUCAO = ["cvm-dfp", "cvm-ipe", "itd", "esaj"]
+ORDEM_EXECUCAO = ["cvm-dfp", "cvm-ipe", "aj-exm", "itd", "esaj"]
 
 
 def obter_slugs_validos() -> list[str]:
@@ -110,9 +112,8 @@ def _criar_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--empresa",
-        choices=slugs_validos + ["todas"],
         default="todas",
-        help=f"Empresa a processar: {slugs_validos} (default: todas).",
+        help=f"Empresa/processo a processar (cadastradas: {slugs_validos}, ou slug específico de AJ, default: todas).",
     )
     parser.add_argument(
         "--ano",
@@ -124,7 +125,7 @@ def _criar_parser() -> argparse.ArgumentParser:
         "--limite",
         type=int,
         default=None,
-        help="Limite máximo de documentos por empresa (útil para testes/amostragem).",
+        help="Limite máximo de documentos por empresa (ou processos no caso de AJ).",
     )
     parser.add_argument(
         "--dry-run",
@@ -198,6 +199,13 @@ def main(argv: list[str] | None = None) -> None:
                     slugs_empresa=slugs,
                     anos=anos,
                     max_documentos=args.limite,
+                    dry_run=args.dry_run,
+                )
+            elif nome_extrator == "aj-exm":
+                resultado = modulo.executar(
+                    slugs_empresa=slugs,
+                    limite=args.limite,
+                    limite_docs=args.limite if slugs else None,
                     dry_run=args.dry_run,
                 )
             else:

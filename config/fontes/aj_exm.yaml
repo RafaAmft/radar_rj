@@ -1,0 +1,30 @@
+# ==============================================================================
+# Fonte: Administrador Judicial — EXM Partners
+# ==============================================================================
+# Portal público com +140 processos ativos de Recuperação Judicial e Falência,
+# disponibilizando diretamente PRJs, Quadros de Credores (QGC), Atas de AGC e RMAs.
+
+nome: "AJ EXM Partners"
+descricao: >
+  Scraper do portal público da EXM Partners Administradora Judicial.
+  Permite download direto de peças processuais chave sem necessidade de
+  login ou certificado digital da OAB.
+
+urls:
+  base: "https://www.exmpartners.com.br"
+  lista_processos: "https://www.exmpartners.com.br/servicos/administracao-judicial"
+  endpoint_iframe: "https://www.exmpartners.com.br/processos-mostra-iframe.php"
+
+# Categorias prioritárias de documentos a extrair
+categorias:
+  - "PRJ"     # Plano de Recuperação Judicial e Aditivos
+  - "QGC"     # Quadro Geral de Credores (1ª e 2ª relações de credores)
+  - "AGC"     # Assembleia Geral de Credores (Convocação, Atas, Votações)
+  - "RMA"     # Relatório Mensal de Atividades do AJ
+  - "EDITAL"  # Editais de Leilão, Alienação de UPIs e Prazos
+
+# Delay em segundos entre downloads para respeitar o servidor
+delay_entre_downloads: 1.0
+
+# Saída relativa a data/raw/
+saida_dir: "aj/exm"

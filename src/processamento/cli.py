@@ -64,6 +64,12 @@ def _criar_parser() -> argparse.ArgumentParser:
         help="Caminho de um PDF específico para extração direta.",
     )
     parser.add_argument(
+        "--dir-saida",
+        type=str,
+        default=None,
+        help="Diretório de saída personalizado para gravação dos textos extraídos.",
+    )
+    parser.add_argument(
         "--forcar",
         action="store_true",
         help="Reprocessa documentos mesmo se já existirem em data/processed/.",
@@ -167,7 +173,7 @@ def main(argv: list[str] | None = None) -> None:
 
         logger.info("Processando arquivo avulso: %s", caminho)
         res = extrator.extrair_arquivo(caminho)
-        destino = DIR_DATA_PROCESSED / "_avulsos" / "textos"
+        destino = Path(args.dir_saida) if args.dir_saida else (DIR_DATA_PROCESSED / "_avulsos" / "textos")
         caminho_salvo = extrator.salvar_resultado(res, destino)
 
         logger.info("=" * 60)
