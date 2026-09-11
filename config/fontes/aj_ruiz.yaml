@@ -1,0 +1,25 @@
+# ==============================================================================
+# Configuração do Scraper — AJ Ruiz Consultoria e Administração Judicial
+# ==============================================================================
+# Portal público em Drupal com mais de 120 processos de recuperação e falência.
+# Lei 11.101/2005 (Art. 22): Publicidade obrigatória de PRJs, QGCs e RMAs.
+# ==============================================================================
+
+nome: "AJ Ruiz Consultoria e Administração Judicial"
+slug: "aj_ruiz"
+tipo: "aj"
+
+urls:
+  base: "https://www.ajruiz.com.br"
+  lista_processos: "https://www.ajruiz.com.br/processos"
+
+delay_entre_downloads: 1.0     # segundos de pausa de cortesia entre downloads
+saida_dir: "aj/ruiz"           # data/raw/aj/ruiz/<slug_processo>/<categoria>/
+
+categorias_alvo:
+  - "PRJ"                      # Plano de Recuperação Judicial e Aditivos
+  - "QGC"                      # Quadro Geral de Credores / Relação de Credores
+  - "AGC"                      # Editais e Atas de Assembleia Geral de Credores
+  - "RMA"                      # Relatórios Mensais de Atividades
+  - "EDITAL"                   # Editais de Leilão, Intimação e Alienação
+  - "OUTROS"                   # Decisões, petições iniciais, relatórios de análise

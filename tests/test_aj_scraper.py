@@ -261,3 +261,95 @@ class TestScraperEXM:
             limite_docs=None,
             dry_run=True,
         )
+
+
+class TestScraperRuiz:
+    """Testes para o scraper da AJ Ruiz."""
+
+    HTML_RUIZ_MOCK = """
+    <html>
+      <body>
+        <div class="view-processos">
+          <div class="views-row">
+            <h2>ATLAS AGROINDUSTRIAL LTDA</h2>
+            <p>Processo: 1022365-90.2021.8.11.0041</p>
+            <p>Juízo: 1ª Vara Cível Especializada em Recuperação Judicial e Falência de Cuiabá-MT</p>
+            <ul>
+              <li><a href="/sites/default/files/plano_recuperacao.pdf">Plano de Recuperação Judicial Consolidado</a></li>
+              <li><a href="/sites/default/files/relacao_credores.pdf">Quadro Geral de Credores Art 7</a></li>
+            </ul>
+          </div>
+          <div class="views-row">
+            <h2>GRUPO FLYTOUR</h2>
+            <p>Processo: 1000679-47.2021.8.26.0260</p>
+            <p>Juízo: 2ª Vara Regional de Competência Empresarial SP</p>
+            <ul>
+              <li><a href="/sites/default/files/edital_leilao.pdf">Edital de Leilão</a></li>
+            </ul>
+          </div>
+        </div>
+      </body>
+    </html>
+    """
+
+    @responses.activate
+    def test_listar_processos_e_documentos(self):
+        from src.ingestao.aj.ruiz import ScraperRuiz
+
+        config = {
+            "nome": "AJ Ruiz",
+            "urls": {
+                "base": "https://www.ajruiz.com.br",
+                "lista_processos": "https://www.ajruiz.com.br/processos",
+            },
+            "delay_entre_downloads": 0.0,
+            "saida_dir": "aj/ruiz",
+        }
+        responses.add(
+            responses.GET,
+            "https://www.ajruiz.com.br/processos",
+            body=self.HTML_RUIZ_MOCK,
+            status=200,
+        )
+
+        scraper = ScraperRuiz(config)
+        processos = scraper.listar_processos()
+
+        assert len(processos) == 2
+        p1 = next(p for p in processos if p.slug == "atlas-agroindustrial-ltda")
+        assert p1.nome_empresa == "ATLAS AGROINDUSTRIAL LTDA"
+        assert p1.numero_cnj == "1022365-90.2021.8.11.0041"
+        assert "Cuiabá" in p1.vara
+
+        docs_p1 = scraper.obter_documentos_processo(p1)
+        assert len(docs_p1) == 2
+        categorias = {d.categoria for d in docs_p1}
+        assert "PRJ" in categorias
+        assert "QGC" in categorias
+        assert docs_p1[0].url_download.startswith("https://www.ajruiz.com.br/")
+
+        p2 = next(p for p in processos if p.slug == "grupo-flytour")
+        assert p2.numero_cnj == "1000679-47.2021.8.26.0260"
+        docs_p2 = scraper.obter_documentos_processo(p2)
+        assert len(docs_p2) == 1
+        assert docs_p2[0].categoria == "EDITAL"
+
+    @patch("src.ingestao.aj.ruiz.ScraperRuiz")
+    def test_executar_com_filtros(self, mock_ruiz_cls):
+        from src.ingestao.aj.ruiz import executar as executar_ruiz
+
+        mock_instance = MagicMock()
+        mock_ruiz_cls.return_value = mock_instance
+        p1 = ProcessoInfo("atlas-agroindustrial", "Atlas Agro", "Vara 1", "1022", "http://ruiz")
+        mock_instance.listar_processos.return_value = [p1]
+        mock_instance.baixar_processo.return_value = 2
+
+        res = executar_ruiz(slugs_empresa=["atlas"], dry_run=True)
+        assert "atlas-agroindustrial" in res
+        mock_instance.baixar_processo.assert_called_once_with(
+            p1,
+            categorias_filtro=None,
+            limite_docs=None,
+            dry_run=True,
+        )
+

@@ -21,7 +21,7 @@ import sys
 import time
 
 from src.ingestao import cvm_dfp_itr, cvm_ipe, esaj_tjsp, itd_acordaos
-from src.ingestao.aj import exm as aj_exm
+from src.ingestao.aj import exm as aj_exm, ruiz as aj_ruiz
 from src.ingestao.download import RAIZ_PROJETO, carregar_config_empresas
 
 # Carregar variáveis de ambiente de .env se existir
@@ -37,11 +37,12 @@ EXTRATORES = {
     "cvm-dfp": ("CVM DFP/ITR", cvm_dfp_itr),
     "cvm-ipe": ("CVM IPE", cvm_ipe),
     "aj-exm": ("AJ EXM Partners", aj_exm),
+    "aj-ruiz": ("AJ Ruiz", aj_ruiz),
     "itd": ("ITD Acórdãos", itd_acordaos),
     "esaj": ("e-SAJ TJSP", esaj_tjsp),
 }
 
-ORDEM_EXECUCAO = ["cvm-dfp", "cvm-ipe", "aj-exm", "itd", "esaj"]
+ORDEM_EXECUCAO = ["cvm-dfp", "cvm-ipe", "aj-exm", "aj-ruiz", "itd", "esaj"]
 
 
 def obter_slugs_validos() -> list[str]:
@@ -201,7 +202,7 @@ def main(argv: list[str] | None = None) -> None:
                     max_documentos=args.limite,
                     dry_run=args.dry_run,
                 )
-            elif nome_extrator == "aj-exm":
+            elif nome_extrator in ("aj-exm", "aj-ruiz"):
                 resultado = modulo.executar(
                     slugs_empresa=slugs,
                     limite=args.limite,
