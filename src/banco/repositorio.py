@@ -491,6 +491,64 @@ class BancoDados:
         )
         return [dict(r) for r in cur.fetchall()]
 
+    def obter_marcos_por_tipo(
+        self,
+        tipos_evento: list[str],
+        tribunal: str = "",
+        setor: str = "",
+        busca: str = "",
+        limite: int = 100,
+    ) -> list[dict[str, Any]]:
+        """Retorna marcos processuais filtrados por tipo, com dados da empresa e processo."""
+        conn = self.conectar()
+        condicoes = ["1=1"]
+        params: list[Any] = []
+
+        if tipos_evento:
+            placeholders = ",".join("?" for _ in tipos_evento)
+            condicoes.append(f"m.tipo_evento IN ({placeholders})")
+            params.extend(tipos_evento)
+
+        if tribunal:
+            condicoes.append("LOWER(p.tribunal) = LOWER(?)")
+            params.append(tribunal)
+
+        if setor:
+            condicoes.append("LOWER(e.setor) LIKE LOWER(?)")
+            params.append(f"%{setor}%")
+
+        if busca:
+            condicoes.append(
+                "(e.nome_razao_social LIKE ? OR p.numero_cnj LIKE ? OR p.administrador_judicial LIKE ?)"
+            )
+            term = f"%{busca}%"
+            params.extend([term, term, term])
+
+        clausula_where = " AND ".join(condicoes)
+        params.append(limite)
+
+        sql = f"""
+        SELECT
+            m.data_evento,
+            m.tipo_evento,
+            m.titulo,
+            m.descricao,
+            m.autor,
+            m.url_documento,
+            e.nome_razao_social,
+            p.tribunal,
+            p.administrador_judicial
+        FROM marcos_processuais m
+        JOIN processos p ON m.processo_id = p.id
+        JOIN empresas e ON p.empresa_id = e.id
+        WHERE {clausula_where}
+        ORDER BY m.data_evento DESC
+        LIMIT ?;
+        """
+        cur = conn.execute(sql, params)
+        return [dict(r) for r in cur.fetchall()]
+
+
     def obter_top_processos(
         self,
         limite: int = 50,

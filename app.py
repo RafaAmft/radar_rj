@@ -400,21 +400,25 @@ with tab1:
 with tab2:
     st.markdown("### 🏢 Raio-X Detalhado da Recuperanda")
     
-    # Seletor de caso
-    opcoes_casos = {f"{p['nome_razao_social']} ({p['tribunal']})": p["processo_id"] for p in processos_filtrados}
-    
-    # Priorizar o Grupo Patense se presente, ou o primeiro
-    index_padrao = 0
-    for idx, (nome, _) in enumerate(opcoes_casos.items()):
-        if "Patense" in nome:
-            index_padrao = idx
-            break
-            
-    caso_selecionado = st.selectbox(
-        "Selecione o Processo para Analisar:",
-        options=list(opcoes_casos.keys()),
-        index=index_padrao if opcoes_casos else 0,
-    )
+    if not processos_filtrados:
+        st.info("Nenhum processo encontrado com os filtros selecionados.")
+        caso_selecionado = None
+    else:
+        # Seletor de caso
+        opcoes_casos = {f"{p['nome_razao_social']} ({p['tribunal']})": p["processo_id"] for p in processos_filtrados}
+        
+        # Priorizar o Grupo Patense se presente, ou o primeiro
+        index_padrao = 0
+        for idx, (nome, _) in enumerate(opcoes_casos.items()):
+            if "Patense" in nome:
+                index_padrao = idx
+                break
+                
+        caso_selecionado = st.selectbox(
+            "Selecione o Processo para Analisar:",
+            options=list(opcoes_casos.keys()),
+            index=index_padrao,
+        )
     
     if caso_selecionado:
         proc_id = opcoes_casos[caso_selecionado]
@@ -472,10 +476,11 @@ with tab2:
             
             st.markdown("#### ⚖️ Estrutura e Classes do Passivo (Quadro Geral de Credores)")
             if totais_classe:
+                soma_total = sum(totais_classe.values()) or 1.0
                 c_col1, c_col2 = st.columns([3, 2])
                 with c_col1:
                     df_classes = pd.DataFrame([
-                        {"Classe": k, "Valor (R$)": v, "Percentual (%)": (v / sum(totais_classe.values())) * 100}
+                        {"Classe": k, "Valor (R$)": v, "Percentual (%)": (v / soma_total) * 100}
                         for k, v in totais_classe.items()
                     ])
                     
@@ -498,6 +503,13 @@ with tab2:
                     st.plotly_chart(fig_classes, use_container_width=True)
                     
                 with c_col2:
+                    linhas_tabela = "".join(
+                        f'<tr style="border-bottom: 1px solid #1E293B;">'
+                        f'<td style="padding: 8px 6px;"><b>{k}</b></td>'
+                        f'<td style="padding: 8px 6px; text-align: right; color: #38BDF8;">R$ {v:,.2f}</td>'
+                        f'</tr>'
+                        for k, v in totais_classe.items()
+                    )
                     st.markdown(
                         f"""
                         <div style="background-color: #131D31; border: 1px solid #1E293B; border-radius: 8px; padding: 18px;">
@@ -510,20 +522,13 @@ with tab2:
                                     </tr>
                                 </thead>
                                 <tbody>
+                                    {linhas_tabela}
+                                </tbody>
+                            </table>
+                        </div>
                         """,
                         unsafe_allow_html=True,
                     )
-                    for k, v in totais_classe.items():
-                        st.markdown(
-                            f"""
-                            <tr style="border-bottom: 1px solid #1E293B;">
-                                <td style="padding: 8px 6px;"><b>{k}</b></td>
-                                <td style="padding: 8px 6px; text-align: right; color: #38BDF8;">R$ {v:,.2f}</td>
-                            </tr>
-                            """,
-                            unsafe_allow_html=True,
-                        )
-                    st.markdown("</tbody></table></div>", unsafe_allow_html=True)
             else:
                 st.info("Decomposição detalhada de classes do QGC em fase de habilitação pelo Administrador Judicial.")
 
@@ -535,7 +540,7 @@ with tab3:
     st.markdown("### ⏳ Cronologia Processual e Peças Relevantes")
     st.caption("Evolução dos atos do processo, desde a Petição Inicial até Deliberações da AGC e Sentenças.")
     
-    if caso_selecionado:
+    if caso_selecionado and processos_filtrados:
         proc_id = opcoes_casos[caso_selecionado]
         timeline = banco.obter_linha_do_tempo(proc_id)
         
@@ -591,37 +596,31 @@ with tab4:
         """
     )
     
-    # Listar processos com marcos do tipo RMA
-    rmas_encontrados = []
-    for p in processos_filtrados:
-        tl = banco.obter_linha_do_tempo(p["processo_id"])
-        for m in tl:
-            if m.get("tipo_evento") in ["RMA_AJ", "MANIFESTACAO_AJ"]:
-                rmas_encontrados.append({
-                    "Recuperanda": p["nome_razao_social"],
-                    "Tribunal": p["tribunal"],
-                    "AJ": p["administrador_judicial"],
-                    "Data": m["data_evento"],
-                    "Título": m["titulo"],
-                    "Síntese": m["descricao"],
-                    "Link": m["url_documento"],
-                })
-                
+    # Query otimizada: buscar marcos RMA/Manifestação em uma única consulta
+    rmas_encontrados = banco.obter_marcos_por_tipo(
+        tipos_evento=["RMA_AJ", "MANIFESTACAO_AJ"],
+        tribunal=tribunal_param,
+        setor=setor_param,
+        busca=termo_busca,
+    )
+    # Filtrar por AJ se selecionado
+    if filtro_aj != "Todos":
+        rmas_encontrados = [r for r in rmas_encontrados if r.get("administrador_judicial") == filtro_aj]
+
     if rmas_encontrados:
-        df_rma = pd.DataFrame(rmas_encontrados)
         st.markdown(f"#### 🔎 {len(rmas_encontrados)} Manifestações & Relatórios Recentes Identificados")
         for r in rmas_encontrados:
             st.markdown(
                 f"""
                 <div style="background-color: #131D31; border: 1px solid #1E293B; border-radius: 10px; padding: 18px; margin-bottom: 14px;">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="color: #38BDF8; font-weight: 700; font-size: 1rem;">{r['Recuperanda']} ({r['Tribunal']})</span>
-                        <span style="color: #94A3B8; font-size: 0.85rem;">📅 {r['Data']}</span>
+                        <span style="color: #38BDF8; font-weight: 700; font-size: 1rem;">{r['nome_razao_social']} ({r['tribunal']})</span>
+                        <span style="color: #94A3B8; font-size: 0.85rem;">📅 {r['data_evento']}</span>
                     </div>
-                    <div style="color: #6EE7B7; font-size: 0.85rem; font-weight: 600; margin-top: 4px;">{r['AJ']}</div>
-                    <h4 style="margin: 8px 0 6px 0;">{r['Título']}</h4>
-                    <p style="color: #CBD5E1; font-size: 0.9rem; margin-bottom: 8px;">{r['Síntese']}</p>
-                    <a href="{r['Link']}" target="_blank" style="color: #38BDF8; font-size: 0.85rem; text-decoration: none;">Acessar Relatório Completo ↗</a>
+                    <div style="color: #6EE7B7; font-size: 0.85rem; font-weight: 600; margin-top: 4px;">{r['administrador_judicial']}</div>
+                    <h4 style="margin: 8px 0 6px 0;">{r['titulo']}</h4>
+                    <p style="color: #CBD5E1; font-size: 0.9rem; margin-bottom: 8px;">{r['descricao']}</p>
+                    <a href="{r['url_documento']}" target="_blank" style="color: #38BDF8; font-size: 0.85rem; text-decoration: none;">Acessar Relatório Completo ↗</a>
                 </div>
                 """,
                 unsafe_allow_html=True,

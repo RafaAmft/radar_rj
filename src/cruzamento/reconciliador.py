@@ -410,24 +410,29 @@ class ReconciliadorFontes:
                     continue
 
                 logger.info("[Reconciliador] Disparando extração QGC para documento %s (%s)...", doc_id, titulo)
-                resultado = extrator.processar_pdf(caminho_arq)
+                resultado = extrator.extrair_pdf(caminho_arq)
                 if resultado.total_credores > 0:
-                    for c in resultado.credores:
-                        self.banco.salvar_credor(
-                            processo_id=processo_id,
-                            documento_id=doc_id,
-                            nome=c.nome,
-                            documento_formatado=c.documento_formatado,
-                            documento_limpo=c.documento_limpo,
-                            tipo_documento=c.tipo_documento,
-                            classe=c.classe,
-                            natureza=c.natureza,
-                            valor_original=c.valor,
-                            moeda=c.moeda,
-                            cidade=c.cidade,
-                            uf=c.uf,
-                            pagina_origem=c.pagina,
-                        )
+                    lote_credores = [
+                        {
+                            "nome": c.nome,
+                            "documento": c.documento,
+                            "documento_limpo": c.documento_limpo,
+                            "tipo_documento": c.tipo_documento,
+                            "classe": c.classe,
+                            "natureza": c.natureza,
+                            "valor": c.valor,
+                            "moeda": c.moeda,
+                            "cidade": c.cidade,
+                            "uf": c.uf,
+                            "pagina": c.pagina,
+                        }
+                        for c in resultado.credores
+                    ]
+                    self.banco.salvar_credores_lote(
+                        credores=lote_credores,
+                        processo_id=processo_id,
+                        documento_id=doc_id,
+                    )
                     total_processados += 1
 
             return total_processados
