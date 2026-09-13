@@ -2,6 +2,10 @@
 data/raw/
 data/processed/
 data/curated/
+*.db
+*.sqlite
+*.sqlite3
+
 
 # Ambientes virtuais e Python
 __pycache__/
