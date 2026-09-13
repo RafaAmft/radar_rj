@@ -59,10 +59,20 @@ class BancoDados:
         self.fechar()
 
     def inicializar_schema(self) -> None:
-        """Executa o DDL de criação de tabelas e índices."""
+        """Executa o DDL de criação de tabelas e índices com migração suave."""
         conn = self.conectar()
         with conn:
             conn.executescript(DDL_SCHEMA)
+            # Migrações automáticas para bases existentes
+            cols = [r[1] for r in conn.execute("PRAGMA table_info(processos)").fetchall()]
+            if "valor_causa" not in cols:
+                conn.execute("ALTER TABLE processos ADD COLUMN valor_causa REAL DEFAULT 0.0;")
+            if "tribunal" not in cols:
+                conn.execute("ALTER TABLE processos ADD COLUMN tribunal TEXT;")
+            if "status_processual" not in cols:
+                conn.execute("ALTER TABLE processos ADD COLUMN status_processual TEXT DEFAULT 'Em Andamento';")
+            if "data_distribuicao" not in cols:
+                conn.execute("ALTER TABLE processos ADD COLUMN data_distribuicao TEXT;")
         logger.info("Schema do banco de dados inicializado em: %s", self.caminho)
 
     # --------------------------------------------------------------------------
@@ -114,6 +124,10 @@ class BancoDados:
         administrador_judicial: str = "",
         tipo_processo: str = "recuperacao_judicial",
         url_detalhe: str = "",
+        valor_causa: float = 0.0,
+        tribunal: str = "",
+        status_processual: str = "Em Andamento",
+        data_distribuicao: str = "",
     ) -> int:
         """Insere ou atualiza um processo judicial pelo slug único."""
         conn = self.conectar()
@@ -122,14 +136,18 @@ class BancoDados:
                 """
                 INSERT INTO processos (
                     empresa_id, slug, numero_cnj, vara_comarca, administrador_judicial,
-                    tipo_processo, url_detalhe
+                    tipo_processo, url_detalhe, valor_causa, tribunal, status_processual, data_distribuicao
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(slug) DO UPDATE SET
                     numero_cnj = COALESCE(NULLIF(excluded.numero_cnj, ''), processos.numero_cnj),
                     vara_comarca = COALESCE(NULLIF(excluded.vara_comarca, ''), processos.vara_comarca),
                     administrador_judicial = COALESCE(NULLIF(excluded.administrador_judicial, ''), processos.administrador_judicial),
-                    url_detalhe = COALESCE(NULLIF(excluded.url_detalhe, ''), processos.url_detalhe)
+                    url_detalhe = COALESCE(NULLIF(excluded.url_detalhe, ''), processos.url_detalhe),
+                    valor_causa = CASE WHEN excluded.valor_causa > 0 THEN excluded.valor_causa ELSE processos.valor_causa END,
+                    tribunal = COALESCE(NULLIF(excluded.tribunal, ''), processos.tribunal),
+                    status_processual = COALESCE(NULLIF(excluded.status_processual, ''), processos.status_processual),
+                    data_distribuicao = COALESCE(NULLIF(excluded.data_distribuicao, ''), processos.data_distribuicao)
                 RETURNING id;
                 """,
                 (
@@ -140,6 +158,10 @@ class BancoDados:
                     administrador_judicial,
                     tipo_processo,
                     url_detalhe,
+                    valor_causa,
+                    tribunal,
+                    status_processual,
+                    data_distribuicao,
                 ),
             )
             row = cur.fetchone()
@@ -301,6 +323,47 @@ class BancoDados:
             "quantidade_por_classe": qtd_por_classe,
         }
 
+    def obter_resumo_credores_processo(self, processo_id: int) -> dict[str, Any]:
+        """
+        Retorna consolidação financeira dos credores de um processo específico:
+        valor total apurado, quantidade de credores e soma por classe jurídica.
+        """
+        conn = self.conectar()
+        query = """
+        SELECT
+            c.classe,
+            COUNT(c.id) as total_credores,
+            SUM(c.valor_original) as valor_total
+        FROM credores c
+        WHERE c.processo_id = ?
+        GROUP BY c.classe
+        ORDER BY valor_total DESC;
+        """
+        cur = conn.execute(query, (processo_id,))
+        linhas = cur.fetchall()
+
+        totais_por_classe: dict[str, float] = {}
+        qtd_por_classe: dict[str, int] = {}
+        valor_total_geral = 0.0
+        total_credores_geral = 0
+
+        for r in linhas:
+            classe = str(r["classe"])
+            v = float(r["valor_total"] or 0.0)
+            q = int(r["total_credores"] or 0)
+            totais_por_classe[classe] = round(v, 2)
+            qtd_por_classe[classe] = q
+            valor_total_geral += v
+            total_credores_geral += q
+
+        return {
+            "processo_id": processo_id,
+            "total_credores": total_credores_geral,
+            "valor_total_apurado": round(valor_total_geral, 2),
+            "totais_por_classe": totais_por_classe,
+            "quantidade_por_classe": qtd_por_classe,
+        }
+
     def buscar_credores(
         self,
         nome: str = "",
@@ -378,8 +441,148 @@ class BancoDados:
                 (SELECT COUNT(*) FROM empresas) as total_empresas,
                 (SELECT COUNT(*) FROM processos) as total_processos,
                 (SELECT COUNT(*) FROM documentos) as total_documentos,
-                (SELECT COUNT(*) FROM credores) as total_credores;
+                (SELECT COUNT(*) FROM credores) as total_credores,
+                (SELECT COUNT(*) FROM marcos_processuais) as total_marcos;
             """
         )
         row = cur.fetchone()
         return dict(row) if row else {}
+
+    # --------------------------------------------------------------------------
+    # MARCOS PROCESSUAIS & LINHA DO TEMPO
+    # --------------------------------------------------------------------------
+    def salvar_marco_processual(
+        self,
+        processo_id: int,
+        data_evento: str,
+        tipo_evento: str,
+        titulo: str,
+        descricao: str = "",
+        autor: str = "AJ",
+        url_documento: str = "",
+    ) -> int:
+        """Registra um marco temporal ou manifestação do AJ na cronologia processual."""
+        conn = self.conectar()
+        with conn:
+            cur = conn.execute(
+                """
+                INSERT INTO marcos_processuais (
+                    processo_id, data_evento, tipo_evento, titulo, descricao, autor, url_documento
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                RETURNING id;
+                """,
+                (processo_id, data_evento, tipo_evento, titulo, descricao, autor, url_documento),
+            )
+            row = cur.fetchone()
+            return int(row["id"])
+
+    def obter_linha_do_tempo(self, processo_id: int) -> list[dict[str, Any]]:
+        """Retorna todos os eventos cronológicos de um processo judicial."""
+        conn = self.conectar()
+        cur = conn.execute(
+            """
+            SELECT id, processo_id, data_evento, tipo_evento, titulo, descricao, autor, url_documento, criado_em
+            FROM marcos_processuais
+            WHERE processo_id = ?
+            ORDER BY data_evento ASC, id ASC;
+            """,
+            (processo_id,),
+        )
+        return [dict(r) for r in cur.fetchall()]
+
+    def obter_top_processos(
+        self,
+        limite: int = 50,
+        tribunal: str = "",
+        setor: str = "",
+        busca: str = "",
+    ) -> list[dict[str, Any]]:
+        """Retorna ranking das maiores recuperações judiciais com filtros analíticos."""
+        conn = self.conectar()
+        condicoes = ["1=1"]
+        params: list[Any] = []
+
+        if tribunal:
+            condicoes.append("LOWER(p.tribunal) = LOWER(?)")
+            params.append(tribunal)
+
+        if setor:
+            condicoes.append("LOWER(e.setor) LIKE LOWER(?)")
+            params.append(f"%{setor}%")
+
+        if busca:
+            condicoes.append(
+                "(e.nome_razao_social LIKE ? OR p.numero_cnj LIKE ? OR p.administrador_judicial LIKE ?)"
+            )
+            term = f"%{busca}%"
+            params.extend([term, term, term])
+
+        clausula_where = " AND ".join(condicoes)
+        params.append(limite)
+
+        sql = f"""
+        SELECT
+            p.id as processo_id,
+            p.slug as processo_slug,
+            p.numero_cnj,
+            p.tribunal,
+            p.vara_comarca,
+            p.administrador_judicial,
+            p.tipo_processo,
+            p.status_processual,
+            p.data_distribuicao,
+            p.valor_causa,
+            p.url_detalhe,
+            e.id as empresa_id,
+            e.nome_razao_social,
+            e.cnpj,
+            e.setor,
+            (SELECT COUNT(*) FROM marcos_processuais m WHERE m.processo_id = p.id) as total_marcos,
+            (SELECT COUNT(*) FROM documentos d WHERE d.processo_id = p.id) as total_documentos,
+            (SELECT COUNT(*) FROM credores c WHERE c.processo_id = p.id) as total_credores
+        FROM processos p
+        JOIN empresas e ON p.empresa_id = e.id
+        WHERE {clausula_where}
+        ORDER BY p.valor_causa DESC
+        LIMIT ?;
+        """
+        cur = conn.execute(sql, params)
+        return [dict(r) for r in cur.fetchall()]
+
+    def obter_dossie_processo(self, processo_id: int) -> dict[str, Any] | None:
+        """Gera dossiê consolidado com dados cadastrais, resumo de credores e linha do tempo."""
+        conn = self.conectar()
+        cur = conn.execute(
+            """
+            SELECT
+                p.id as processo_id,
+                p.slug as processo_slug,
+                p.numero_cnj,
+                p.tribunal,
+                p.vara_comarca,
+                p.administrador_judicial,
+                p.tipo_processo,
+                p.status_processual,
+                p.data_distribuicao,
+                p.valor_causa,
+                p.url_detalhe,
+                e.id as empresa_id,
+                e.nome_razao_social,
+                e.cnpj,
+                e.setor
+            FROM processos p
+            JOIN empresas e ON p.empresa_id = e.id
+            WHERE p.id = ?;
+            """,
+            (processo_id,),
+        )
+        row = cur.fetchone()
+        if not row:
+            return None
+
+        dossie = dict(row)
+        dossie["linha_do_tempo"] = self.obter_linha_do_tempo(processo_id)
+        dossie["resumo_credores"] = self.obter_resumo_credores_processo(processo_id)
+        return dossie
+

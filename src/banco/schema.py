@@ -35,8 +35,29 @@ CREATE TABLE IF NOT EXISTS processos (
     administrador_judicial TEXT,
     tipo_processo TEXT DEFAULT 'recuperacao_judicial', -- 'recuperacao_judicial', 'recuperacao_extrajudicial', 'falencia'
     url_detalhe TEXT,
+    valor_causa REAL DEFAULT 0.0,
+    tribunal TEXT,
+    status_processual TEXT DEFAULT 'Em Andamento',
+    data_distribuicao TEXT,
     criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE CASCADE
+);
+
+-- ==============================================================================
+-- TABELA: marcos_processuais
+-- Linha do tempo de peças-chave, decisões e manifestações do Administrador Judicial.
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS marcos_processuais (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    processo_id INTEGER NOT NULL,
+    data_evento TEXT NOT NULL,
+    tipo_evento TEXT NOT NULL, -- 'PETICAO_INICIAL', 'DECISAO_PROCESSAMENTO', 'PRJ', 'QGC', 'RMA_AJ', 'MANIFESTACAO_AJ', 'AGC', 'HOMOLOGACAO', 'ENCERRAMENTO'
+    titulo TEXT NOT NULL,
+    descricao TEXT,
+    autor TEXT DEFAULT 'AJ', -- 'JUIZO', 'AJ', 'RECUPERANDA', 'CREDOR', 'MP'
+    url_documento TEXT,
+    criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (processo_id) REFERENCES processos (id) ON DELETE CASCADE
 );
 
 -- ==============================================================================
@@ -99,4 +120,7 @@ CREATE INDEX IF NOT EXISTS idx_credores_documento_limpo ON credores (documento_l
 CREATE INDEX IF NOT EXISTS idx_credores_classe ON credores (classe);
 CREATE INDEX IF NOT EXISTS idx_credores_valor ON credores (valor_original DESC);
 CREATE INDEX IF NOT EXISTS idx_credores_nome ON credores (nome);
+CREATE INDEX IF NOT EXISTS idx_marcos_processo ON marcos_processuais (processo_id);
+CREATE INDEX IF NOT EXISTS idx_marcos_data ON marcos_processuais (data_evento);
+CREATE INDEX IF NOT EXISTS idx_marcos_tipo ON marcos_processuais (tipo_evento);
 """

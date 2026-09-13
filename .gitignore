@@ -5,6 +5,8 @@ data/curated/
 *.db
 *.sqlite
 *.sqlite3
+*.db-wal
+*.db-shm
 
 
 # Ambientes virtuais e Python
