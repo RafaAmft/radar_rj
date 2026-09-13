@@ -21,8 +21,10 @@ from src.ingestao.tribunais.base import (
     limpar_numero_cnj,
 )
 from src.ingestao.tribunais.datajud import ClienteDataJud
+from src.ingestao.tribunais.eproc import ConsultorEproc
 from src.ingestao.tribunais.esaj import ConsultorEsaj
 from src.ingestao.tribunais.modelos import ProcessoTribunalInfo
+from src.ingestao.tribunais.pje import ConsultorPje
 
 logger = logging.getLogger(__name__)
 
@@ -48,10 +50,14 @@ class PipelineTribunais:
         self,
         cliente_datajud: ClienteDataJud | None = None,
         consultor_esaj: ConsultorEsaj | None = None,
+        consultor_pje: ConsultorPje | None = None,
+        consultor_eproc: ConsultorEproc | None = None,
         banco: BancoDados | None = None,
     ) -> None:
         self.datajud = cliente_datajud or ClienteDataJud()
         self.esaj = consultor_esaj or ConsultorEsaj()
+        self.pje = consultor_pje or ConsultorPje(cliente_datajud=self.datajud)
+        self.eproc = consultor_eproc or ConsultorEproc(cliente_datajud=self.datajud)
         self.banco = banco or BancoDados()
 
     def processar_processo_especifico(
@@ -86,10 +92,14 @@ class PipelineTribunais:
             numero_cnj=numero_formatado, tribunal=sigla_tribunal
         )
 
-        # 2. Consulta no Consultor do Tribunal (ex: e-SAJ)
+        # 2. Consulta no Consultor do Tribunal (e-SAJ, PJe, Eproc)
         info_consultor: ProcessoTribunalInfo | None = None
         if sistema == "esaj" and self.esaj.suporta_tribunal(sigla_tribunal):
             info_consultor = self.esaj.consultar_processo(numero_formatado)
+        elif sistema == "pje" and self.pje.suporta_tribunal(sigla_tribunal):
+            info_consultor = self.pje.consultar_processo(numero_formatado)
+        elif sistema == "eproc" and self.eproc.suporta_tribunal(sigla_tribunal):
+            info_consultor = self.eproc.consultar_processo(numero_formatado)
 
         # 3. Unificar dados
         info_final = self._unificar_dados_processo(
