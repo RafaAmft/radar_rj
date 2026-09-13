@@ -21,8 +21,9 @@ import sys
 import time
 
 from src.ingestao import cvm_dfp_itr, cvm_ipe, esaj_tjsp, itd_acordaos
-from src.ingestao.aj import exm as aj_exm, ruiz as aj_ruiz
+from src.ingestao.aj import brizola as aj_brizola, exm as aj_exm, ruiz as aj_ruiz
 from src.ingestao.download import RAIZ_PROJETO, carregar_config_empresas
+from src.ingestao.tribunais import pipeline as tribunais_pipeline
 
 # Carregar variáveis de ambiente de .env se existir
 try:
@@ -38,11 +39,13 @@ EXTRATORES = {
     "cvm-ipe": ("CVM IPE", cvm_ipe),
     "aj-exm": ("AJ EXM Partners", aj_exm),
     "aj-ruiz": ("AJ Ruiz", aj_ruiz),
+    "aj-brizola": ("AJ Brizola e Japur", aj_brizola),
+    "tribunais": ("Radar de Tribunais de Justiça", tribunais_pipeline),
     "itd": ("ITD Acórdãos", itd_acordaos),
-    "esaj": ("e-SAJ TJSP", esaj_tjsp),
+    "esaj": ("e-SAJ TJSP (Legado)", esaj_tjsp),
 }
 
-ORDEM_EXECUCAO = ["cvm-dfp", "cvm-ipe", "aj-exm", "aj-ruiz", "itd", "esaj"]
+ORDEM_EXECUCAO = ["cvm-dfp", "cvm-ipe", "aj-exm", "aj-ruiz", "aj-brizola", "tribunais", "itd"]
 
 
 def obter_slugs_validos() -> list[str]:
@@ -129,6 +132,18 @@ def _criar_parser() -> argparse.ArgumentParser:
         help="Limite máximo de documentos por empresa (ou processos no caso de AJ).",
     )
     parser.add_argument(
+        "--processo",
+        type=str,
+        default=None,
+        help="Número de processo CNJ específico para consulta em tribunais (ex: 1024564-80.2024.8.26.0100).",
+    )
+    parser.add_argument(
+        "--tribunais",
+        type=str,
+        default="tjsp",
+        help="Siglas de tribunais separadas por vírgula para o radar nacional (default: tjsp).",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Mostra o que faria sem baixar nada.",
@@ -159,12 +174,17 @@ def main(argv: list[str] | None = None) -> None:
     slugs = None if args.empresa == "todas" else [args.empresa]
     extratores = ORDEM_EXECUCAO if args.extrator == "todos" else [args.extrator]
     anos = [args.ano] if args.ano else None
+    lista_tribunais = [t.strip().lower() for t in args.tribunais.split(",") if t.strip()]
 
     logger.info("=" * 70)
     logger.info("PIPELINE DE INGESTÃO — Radar de Oportunidades")
     logger.info("=" * 70)
     logger.info("Extratores: %s", extratores)
     logger.info("Empresas: %s", slugs or "todas")
+    if args.processo:
+        logger.info("Processo CNJ Alvo: %s", args.processo)
+    if "tribunais" in extratores:
+        logger.info("Tribunais Rastreamento: %s", lista_tribunais)
     if anos:
         logger.info("Ano: %s", anos)
     if args.limite:
@@ -191,6 +211,13 @@ def main(argv: list[str] | None = None) -> None:
                 resultado = modulo.executar(
                     slugs_empresa=slugs, dry_run=args.dry_run
                 )
+            elif nome_extrator == "tribunais":
+                resultado = modulo.executar(
+                    processo=args.processo,
+                    tribunais=lista_tribunais,
+                    limite=args.limite,
+                    dry_run=args.dry_run,
+                )
             elif nome_extrator == "cvm-dfp":
                 resultado = modulo.executar(
                     slugs_empresa=slugs, anos=anos, dry_run=args.dry_run
@@ -202,7 +229,7 @@ def main(argv: list[str] | None = None) -> None:
                     max_documentos=args.limite,
                     dry_run=args.dry_run,
                 )
-            elif nome_extrator in ("aj-exm", "aj-ruiz"):
+            elif nome_extrator in ("aj-exm", "aj-ruiz", "aj-brizola"):
                 resultado = modulo.executar(
                     slugs_empresa=slugs,
                     limite=args.limite,

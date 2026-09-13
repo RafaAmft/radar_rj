@@ -1,0 +1,106 @@
+# ==============================================================================
+# Fonte: Tribunais de Justiça do Brasil (Radar Nacional Judiciário)
+# ==============================================================================
+# Configuração dos 27 Tribunais Estaduais com mapeamento de sistema eletrônico
+# e endpoints da API Pública do DataJud (CNJ).
+
+datajud:
+  url_base: "https://api-publica.datajud.cnj.jus.br"
+  api_key: "cDZHYzlZa0JadVREZDJCendQbXY6SkJlTzNjLV9TRENyQk1RdnFKZGRQdw=="
+  classes_monitoradas:
+    - 129  # Recuperação Judicial
+    - 128  # Recuperação Extrajudicial
+    - 110  # Falência
+    - 12134 # Tutela Cautelar Antecedente / Preparatória de RJ
+
+tribunais:
+  tjsp:
+    nome: "Tribunal de Justiça do Estado de São Paulo"
+    codigo_tr: "26"
+    uf: "SP"
+    sistema: "esaj"
+    url_cpopg: "https://esaj.tjsp.jus.br/cpopg"
+    endpoint_datajud: "api_publica_tjsp"
+
+  tjsc:
+    nome: "Tribunal de Justiça de Santa Catarina"
+    codigo_tr: "24"
+    uf: "SC"
+    sistema: "esaj"
+    url_cpopg: "https://esaj.tjsc.jus.br/cpopg"
+    endpoint_datajud: "api_publica_tjsc"
+
+  tjms:
+    nome: "Tribunal de Justiça do Mato Grosso do Sul"
+    codigo_tr: "12"
+    uf: "MS"
+    sistema: "esaj"
+    url_cpopg: "https://esaj.tjms.jus.br/cpopg"
+    endpoint_datajud: "api_publica_tjms"
+
+  tjal:
+    nome: "Tribunal de Justiça de Alagoas"
+    codigo_tr: "02"
+    uf: "AL"
+    sistema: "esaj"
+    url_cpopg: "https://www.tjal.jus.br/cpopg"
+    endpoint_datajud: "api_publica_tjal"
+
+  tjam:
+    nome: "Tribunal de Justiça do Amazonas"
+    codigo_tr: "04"
+    uf: "AM"
+    sistema: "esaj"
+    url_cpopg: "https://consultasaj.tjam.jus.br/cpopg"
+    endpoint_datajud: "api_publica_tjam"
+
+  tjac:
+    nome: "Tribunal de Justiça do Acre"
+    codigo_tr: "01"
+    uf: "AC"
+    sistema: "esaj"
+    url_cpopg: "https://esaj.tjac.jus.br/cpopg"
+    endpoint_datajud: "api_publica_tjac"
+
+  # Principais Tribunais em PJe, Eproc e Projudi
+  tjmt:
+    nome: "Tribunal de Justiça do Mato Grosso"
+    codigo_tr: "11"
+    uf: "MT"
+    sistema: "pje"
+    endpoint_datajud: "api_publica_tjmt"
+
+  tjmg:
+    nome: "Tribunal de Justiça de Minas Gerais"
+    codigo_tr: "13"
+    uf: "MG"
+    sistema: "pje"
+    endpoint_datajud: "api_publica_tjmg"
+
+  tjrj:
+    nome: "Tribunal de Justiça do Rio de Janeiro"
+    codigo_tr: "19"
+    uf: "RJ"
+    sistema: "pje"
+    endpoint_datajud: "api_publica_tjrj"
+
+  tjrs:
+    nome: "Tribunal de Justiça do Rio Grande do Sul"
+    codigo_tr: "21"
+    uf: "RS"
+    sistema: "eproc"
+    endpoint_datajud: "api_publica_tjrs"
+
+  tjpr:
+    nome: "Tribunal de Justiça do Paraná"
+    codigo_tr: "16"
+    uf: "PR"
+    sistema: "projudi"
+    endpoint_datajud: "api_publica_tjpr"
+
+  tjgo:
+    nome: "Tribunal de Justiça de Goiás"
+    codigo_tr: "09"
+    uf: "GO"
+    sistema: "projudi"
+    endpoint_datajud: "api_publica_tjgo"
