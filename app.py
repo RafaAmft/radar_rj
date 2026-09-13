@@ -1,9 +1,12 @@
 """
 Radar RJ - Plataforma de Inteligência em Recuperações Judiciais & Distressed Assets.
 
-Dashboard analítico construído em Streamlit apresentando o ranking das maiores
-Recuperações Judiciais do Brasil, linha do tempo de peças principais,
-manifestações dos Administradores Judiciais e decomposição de passivos.
+Dashboard analítico construído em Streamlit apresentando:
+1. Ranking das maiores Recuperações Judiciais do Brasil
+2. Página dedicada de Linha do Tempo Processual & Documentos da CVM
+3. Manifestações e Relatórios Mensais de Atividades (RMAs) dos Administradores Judiciais
+4. Decomposição detalhada de passivos concursais por classes da Lei 11.101/05
+5. Simulador financeiro de cessão de créditos e distressed assets
 """
 
 from __future__ import annotations
@@ -23,6 +26,12 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from src.banco.repositorio import BancoDados
+from src.dados.links_util import (
+    COMPANHIAS_CVM,
+    resolver_link_cvm,
+    resolver_link_documento_marco,
+    resolver_link_tribunal,
+)
 
 # Configuração de Página Streamlit
 st.set_page_config(
@@ -83,7 +92,7 @@ CUSTOM_CSS = """
     /* Timeline Card */
     .timeline-item {
         position: relative;
-        padding-left: 28px;
+        padding-left: 32px;
         margin-bottom: 24px;
         border-left: 2px solid #334155;
     }
@@ -101,15 +110,63 @@ CUSTOM_CSS = """
         background-color: #131D31;
         border: 1px solid #1E293B;
         border-radius: 10px;
-        padding: 16px 20px;
+        padding: 18px 22px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
     }
     
-    /* Badges */
-    .badge-juizo { background-color: #1E3A8A; color: #93C5FD; padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
-    .badge-aj { background-color: #064E3B; color: #6EE7B7; padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
-    .badge-recuperanda { background-color: #78350F; color: #FCD34D; padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
-    .badge-credor { background-color: #581C87; color: #D8B4FE; padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
+    /* Badges de Órgãos e Atores */
+    .badge-juizo { background-color: #1E3A8A; color: #93C5FD; padding: 4px 12px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
+    .badge-aj { background-color: #064E3B; color: #6EE7B7; padding: 4px 12px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
+    .badge-recuperanda { background-color: #78350F; color: #FCD34D; padding: 4px 12px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
+    .badge-credor { background-color: #581C87; color: #D8B4FE; padding: 4px 12px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
+    .badge-cvm { background-color: #4C1D95; color: #E9D5FF; padding: 4px 12px; border-radius: 12px; font-size: 0.75rem; font-weight: 700; border: 1px solid #7C3AED; }
     
+    /* Botões de Ação Direta */
+    .btn-tribunal {
+        display: inline-block;
+        margin-top: 10px;
+        margin-right: 8px;
+        background-color: #1E40AF;
+        color: #FFFFFF !important;
+        padding: 6px 14px;
+        border-radius: 6px;
+        text-decoration: none !important;
+        font-size: 0.8rem;
+        font-weight: 600;
+        transition: background-color 0.2s;
+    }
+    .btn-tribunal:hover { background-color: #2563EB; }
+    
+    .btn-cvm {
+        display: inline-block;
+        margin-top: 10px;
+        margin-right: 8px;
+        background-color: #6D28D9;
+        color: #FFFFFF !important;
+        padding: 6px 14px;
+        border-radius: 6px;
+        text-decoration: none !important;
+        font-size: 0.8rem;
+        font-weight: 600;
+        transition: background-color 0.2s;
+    }
+    .btn-cvm:hover { background-color: #7C3AED; }
+    
+    .btn-aj {
+        display: inline-block;
+        margin-top: 10px;
+        margin-right: 8px;
+        background-color: #047857;
+        color: #FFFFFF !important;
+        padding: 6px 14px;
+        border-radius: 6px;
+        text-decoration: none !important;
+        font-size: 0.8rem;
+        font-weight: 600;
+        transition: background-color 0.2s;
+    }
+    .btn-aj:hover { background-color: #059669; }
+
     /* Custom Tabs */
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
@@ -148,26 +205,41 @@ banco = get_banco()
 
 
 # ------------------------------------------------------------------------------
-# SIDEBAR: Filtros Globais e Identidade
+# SIDEBAR: Navegação Principal e Filtros Globais
 # ------------------------------------------------------------------------------
 with st.sidebar:
     st.markdown(
         """
         <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
-            <div style="background: linear-gradient(135deg, #2563EB, #38BDF8); width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 22px;">⚖️</div>
+            <div style="background: linear-gradient(135deg, #2563EB, #38BDF8); width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 24px;">⚖️</div>
             <div>
-                <h3 style="margin: 0; font-size: 1.25rem;">RADAR RJ</h3>
-                <span style="font-size: 0.75rem; color: #94A3B8; letter-spacing: 0.05em; text-transform: uppercase;">Special Situations & Credit</span>
+                <h3 style="margin: 0; font-size: 1.3rem;">RADAR RJ</h3>
+                <span style="font-size: 0.75rem; color: #94A3B8; letter-spacing: 0.05em; text-transform: uppercase;">Inteligência Concursal & CVM</span>
             </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    st.markdown("### 🔎 Pesquisa e Filtros")
-    termo_busca = st.text_input("Buscar Empresa, CNJ ou AJ", placeholder="Ex: Patense, Oi, 1057756...")
+    st.markdown("### 🧭 Navegação")
+    pagina_selecionada = st.radio(
+        "Selecione o Módulo",
+        [
+            "📊 Visão Geral & Ranking Top 50",
+            "⏳ Linha do Tempo & Documentos CVM",
+            "📑 Relatórios & Manifestações do AJ",
+            "💳 Quadro de Credores & Dívidas",
+            "💡 Simulador de Crédito Concursal",
+        ],
+        index=0,
+        label_visibility="collapsed",
+    )
 
-    # Obter dados brutos de processos para alimentar filtros
+    st.markdown("---")
+    st.markdown("### 🔎 Filtros Globais")
+    termo_busca = st.text_input("Buscar Empresa, CNJ ou AJ", placeholder="Ex: Oi, Americanas, 1057756...")
+
+    # Dados base para alimentar opções dos selects
     todos_processos = banco.obter_top_processos(limite=200)
     df_base = pd.DataFrame(todos_processos)
 
@@ -186,13 +258,14 @@ with st.sidebar:
     st.markdown(f"• **{stats_gerais.get('total_empresas', 0)}** Empresas Monitoradas")
     st.markdown(f"• **{stats_gerais.get('total_processos', 0)}** Processos Judiciais")
     st.markdown(f"• **{stats_gerais.get('total_marcos', 0)}** Marcos Cronológicos")
+    st.markdown(f"• **{stats_gerais.get('total_documentos', 0)}** Documentos & Peças Catalogados")
     st.markdown(f"• **{stats_gerais.get('total_credores', 0)}** Credores Habilitados")
     st.markdown("---")
-    st.caption("Radar RJ © 2026 • Inteligência de Dados Públicos Concursais")
+    st.caption("Radar RJ © 2026 • Plataforma de Inteligência em Distressed Assets")
 
 
 # ------------------------------------------------------------------------------
-# FILTRAGEM DOS DADOS
+# APLICAÇÃO DOS FILTROS
 # ------------------------------------------------------------------------------
 tribunal_param = "" if filtro_tribunal == "Todos" else filtro_tribunal
 setor_param = "" if filtro_setor == "Todos" else filtro_setor
@@ -209,103 +282,86 @@ if filtro_aj != "Todos":
 df_filtrado = pd.DataFrame(processos_filtrados)
 
 
-# ------------------------------------------------------------------------------
-# HEADER PRINCIPAL
-# ------------------------------------------------------------------------------
-st.markdown(
-    """
-    <div style="margin-bottom: 24px;">
-        <h1 style="margin-bottom: 4px;">Monitor Nacional de Grandes Recuperações Judiciais</h1>
-        <p style="color: #94A3B8; font-size: 1.05rem; margin-top: 0;">
-            Auditoria automatizada, decomposição de passivos concursais e acompanhamento de peças de Administradores Judiciais.
-        </p>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-# KPIs no Topo
-passivo_total = df_filtrado["valor_causa"].sum() if not df_filtrado.empty else 0.0
-total_casos = len(df_filtrado)
-tribunais_ativos = df_filtrado["tribunal"].nunique() if not df_filtrado.empty else 0
-ajs_ativos = df_filtrado["administrador_judicial"].nunique() if not df_filtrado.empty else 0
-
-col1, col2, col3, col4 = st.columns(4)
-with col1:
-    st.markdown(
-        f"""
-        <div class="kpi-card">
-            <div class="kpi-title">Passivo Total em Monitoramento</div>
-            <div class="kpi-value">R$ {passivo_total / 1e9:.2f} B</div>
-            <div class="kpi-subtitle">Em créditos concursais auditados</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-with col2:
-    st.markdown(
-        f"""
-        <div class="kpi-card">
-            <div class="kpi-title">Casos no Filtro</div>
-            <div class="kpi-value">{total_casos} RJs</div>
-            <div class="kpi-subtitle">Com grupos econômicos consolidados</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-with col3:
-    st.markdown(
-        f"""
-        <div class="kpi-card">
-            <div class="kpi-title">Tribunais Estaduais</div>
-            <div class="kpi-value">{tribunais_ativos} TJs</div>
-            <div class="kpi-subtitle">TJSP, TJRJ, TJMG, TJPR, TJMT...</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-with col4:
-    st.markdown(
-        f"""
-        <div class="kpi-card">
-            <div class="kpi-title">Administradores Judiciais</div>
-            <div class="kpi-value">{ajs_ativos}</div>
-            <div class="kpi-subtitle">Firmas e escritórios nomeados</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-st.markdown("<br>", unsafe_allow_html=True)
-
-
-# ------------------------------------------------------------------------------
-# TABS DE NAVEGAÇÃO
-# ------------------------------------------------------------------------------
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "📊 Visão de Mercado & Ranking",
-    "🏢 Dossiê Individual do Caso",
-    "⏳ Linha do Tempo de Peças",
-    "📑 Relatórios do AJ (RMAs)",
-    "💡 Simulador de Crédito",
-])
-
-
 # ==============================================================================
-# TAB 1: VISÃO DE MERCADO & RANKING
+# PÁGINA 1: VISÃO GERAL & RANKING TOP 50
 # ==============================================================================
-with tab1:
+if pagina_selecionada == "📊 Visão Geral & Ranking Top 50":
+    st.markdown(
+        """
+        <div style="margin-bottom: 24px;">
+            <h1 style="margin-bottom: 4px;">Monitor Nacional das Maiores Recuperações Judiciais</h1>
+            <p style="color: #94A3B8; font-size: 1.05rem; margin-top: 0;">
+                Catálogo executivo de distressed assets, passivos concursais e acompanhamento de grandes litígios empresariais.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # Cards KPI
+    passivo_total = sum(p["valor_causa"] for p in processos_filtrados) if processos_filtrados else 0.0
+    casos_ativos = len(processos_filtrados)
+    passivo_medio = passivo_total / casos_ativos if casos_ativos > 0 else 0.0
+    ajs_ativos = len(set(p.get("administrador_judicial") for p in processos_filtrados if p.get("administrador_judicial")))
+
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.markdown(
+            f"""
+            <div class="kpi-card">
+                <div class="kpi-title">Volume Total de Dívida</div>
+                <div class="kpi-value">R$ {passivo_total / 1e9:.1f}B</div>
+                <div class="kpi-subtitle">Passivo concursal agregado</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with c2:
+        st.markdown(
+            f"""
+            <div class="kpi-card">
+                <div class="kpi-title">Casos Filtrados</div>
+                <div class="kpi-value">{casos_ativos}</div>
+                <div class="kpi-subtitle">RJs sob monitoramento</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with c3:
+        st.markdown(
+            f"""
+            <div class="kpi-card">
+                <div class="kpi-title">Passivo Médio / Caso</div>
+                <div class="kpi-value">R$ {passivo_medio / 1e9:.2f}B</div>
+                <div class="kpi-subtitle">Ticket médio da amostra</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with c4:
+        st.markdown(
+            f"""
+            <div class="kpi-card">
+                <div class="kpi-title">Administradores Judiciais</div>
+                <div class="kpi-value">{ajs_ativos}</div>
+                <div class="kpi-subtitle">Firmas e escritórios nomeados</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
     if df_filtrado.empty:
         st.warning("Nenhum processo encontrado com os filtros selecionados.")
     else:
-        # Gráficos Analíticos Superiores
+        # Gráficos Analíticos
         g_col1, g_col2 = st.columns([3, 2])
-        
         with g_col1:
-            st.markdown("#### 🏆 Top 10 Maiores Recuperações por Volume da Dívida")
+            st.markdown("#### 🏆 Top 10 Maiores Recuperações por Volume de Dívida")
             top10 = df_filtrado.head(10).copy()
             top10["valor_bi"] = top10["valor_causa"] / 1e9
-            
+
             fig_bar = px.bar(
                 top10,
                 x="valor_bi",
@@ -326,16 +382,14 @@ with tab1:
             )
             fig_bar.update_traces(texttemplate='R$ %{text:.1f}B', textposition='outside')
             st.plotly_chart(fig_bar, use_container_width=True)
-            
+
         with g_col2:
-            st.markdown("#### 🥧 Distribuição do Passivo por Setor")
+            st.markdown("#### 🏭 Concentração Setorial do Passivo")
             setor_agg = df_filtrado.groupby("setor")["valor_causa"].sum().reset_index()
-            setor_agg["valor_bi"] = setor_agg["valor_causa"] / 1e9
-            
             fig_pie = px.pie(
                 setor_agg,
+                values="valor_causa",
                 names="setor",
-                values="valor_bi",
                 hole=0.45,
                 color_discrete_sequence=px.colors.qualitative.Dark24,
             )
@@ -345,237 +399,310 @@ with tab1:
                 font=dict(color="#E2E8F0"),
                 margin=dict(l=10, r=10, t=10, b=10),
                 height=420,
-                legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5),
             )
             st.plotly_chart(fig_pie, use_container_width=True)
 
         st.markdown("---")
-        
-        # Tabela Geral de Ranking
-        st.markdown("#### 📋 Catálogo Geral e Filtros Avançados")
-        
-        df_exibicao = df_filtrado[[
-            "nome_razao_social",
-            "setor",
-            "tribunal",
-            "valor_causa",
-            "status_processual",
-            "administrador_judicial",
-            "numero_cnj",
-            "total_marcos",
-        ]].copy()
-        
-        df_exibicao["Passivo (R$)"] = df_exibicao["valor_causa"].apply(
-            lambda v: f"R$ {v / 1e9:.2f} Bilhões" if v >= 1e9 else f"R$ {v / 1e6:.1f} Milhões"
-        )
-        df_exibicao = df_exibicao.rename(columns={
-            "nome_razao_social": "Recuperanda / Grupo",
+        st.markdown("### 📋 Tabela das Maiores Recuperações Judiciais")
+
+        # Exibição da tabela principal com link funcional
+        df_exibicao = df_filtrado.copy()
+        df_exibicao["Valor Declarado"] = df_exibicao["valor_causa"].apply(lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+        df_exibicao = df_exibicao[[
+            "nome_razao_social", "setor", "tribunal", "numero_cnj", "Valor Declarado",
+            "administrador_judicial", "status_processual", "data_distribuicao"
+        ]].rename(columns={
+            "nome_razao_social": "Empresa / Grupo",
             "setor": "Setor",
             "tribunal": "Tribunal",
-            "status_processual": "Status Processual",
+            "numero_cnj": "Número CNJ",
             "administrador_judicial": "Administrador Judicial",
-            "numero_cnj": "Número Único CNJ",
-            "total_marcos": "Marcos Auditados",
+            "status_processual": "Status Processual",
+            "data_distribuicao": "Data Distribuição",
         })
-        
-        colunas_finais = ["Recuperanda / Grupo", "Setor", "Tribunal", "Passivo (R$)", "Status Processual", "Administrador Judicial", "Número Único CNJ", "Marcos Auditados"]
-        st.dataframe(
-            df_exibicao[colunas_finais],
-            use_container_width=True,
-            hide_index=True,
-        )
-        
-        csv_data = df_exibicao[colunas_finais].to_csv(index=False).encode("utf-8")
-        st.download_button(
-            label="📥 Exportar Ranking para Planilha (CSV)",
-            data=csv_data,
-            file_name="ranking_maiores_rjs_brasil.csv",
-            mime="text/csv",
-        )
+        st.dataframe(df_exibicao, use_container_width=True, height=450)
 
 
 # ==============================================================================
-# TAB 2: DOSSIÊ INDIVIDUAL DO CASO
+# PÁGINA 2: LINHA DO TEMPO PROCESSUAL & DOCUMENTOS CVM (PÁGINA DEDICADA)
 # ==============================================================================
-with tab2:
-    st.markdown("### 🏢 Raio-X Detalhado da Recuperanda")
-    
-    if not processos_filtrados:
-        st.info("Nenhum processo encontrado com os filtros selecionados.")
-        caso_selecionado = None
+elif pagina_selecionada == "⏳ Linha do Tempo & Documentos CVM":
+    st.markdown(
+        """
+        <div style="margin-bottom: 24px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <h1 style="margin: 0;">Linha do Tempo Processual & Documentos da CVM</h1>
+                <span class="badge-cvm">Módulo Exclusivo</span>
+            </div>
+            <p style="color: #94A3B8; font-size: 1.05rem; margin-top: 6px;">
+                Rastreamento cronológico de atos do Judiciário, Fatos Relevantes CVM, Editais de Assembleia e Relatórios de Administradores Judiciais com links diretos validados.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # Seletor do Caso
+    opcoes_casos = {f"{p['nome_razao_social']} ({p.get('tribunal', 'N/A')} - {p.get('numero_cnj', 'S/N')})": (p.get("processo_id") or p.get("id")) for p in processos_filtrados}
+    lista_nomes_casos = list(opcoes_casos.keys())
+
+    col_sel1, col_sel2 = st.columns([3, 2])
+    with col_sel1:
+        caso_escolhido = st.selectbox("Selecione a Recuperanda / Processo Judicial:", lista_nomes_casos if lista_nomes_casos else ["Nenhum processo encontrado"])
+    with col_sel2:
+        filtro_orgao = st.selectbox(
+            "Filtrar por Emissor / Órgão:",
+            ["Todos", "🏛️ Judiciário (Juízo & Decisões)", "🏢 CVM (Fatos Relevantes & Mercado)", "📋 Administrador Judicial", "🏢 Recuperanda (Petição & PRJ)"],
+        )
+
+    if not lista_nomes_casos or caso_escolhido == "Nenhum processo encontrado":
+        st.warning("Nenhum processo disponível para visualização da linha do tempo.")
     else:
-        # Seletor de caso
-        opcoes_casos = {f"{p['nome_razao_social']} ({p['tribunal']})": p["processo_id"] for p in processos_filtrados}
-        
-        # Priorizar o Grupo Patense se presente, ou o primeiro
-        index_padrao = 0
-        for idx, (nome, _) in enumerate(opcoes_casos.items()):
-            if "Patense" in nome:
-                index_padrao = idx
-                break
-                
-        caso_selecionado = st.selectbox(
-            "Selecione o Processo para Analisar:",
-            options=list(opcoes_casos.keys()),
-            index=index_padrao,
-        )
-    
-    if caso_selecionado:
-        proc_id = opcoes_casos[caso_selecionado]
+        proc_id = opcoes_casos[caso_escolhido]
         dossie = banco.obter_dossie_processo(proc_id)
-        
-        if dossie:
-            # Painel Superior de Identificação
+        linha_tempo_bruta = banco.obter_linha_do_tempo(proc_id)
+        documentos_processo = banco.obter_documentos_processo(proc_id)
+
+        # KPIs no topo da página dedicada
+        total_marcos_caso = len(linha_tempo_bruta)
+        marcos_cvm = sum(1 for m in linha_tempo_bruta if m.get("autor") == "CVM" or "CVM" in m.get("tipo_evento", ""))
+        marcos_juizo = sum(1 for m in linha_tempo_bruta if m.get("autor") == "JUIZO")
+        marcos_aj = sum(1 for m in linha_tempo_bruta if m.get("autor") == "AJ")
+
+        mk1, mk2, mk3, mk4 = st.columns(4)
+        with mk1:
             st.markdown(
                 f"""
-                <div style="background-color: #131D31; border: 1px solid #1E293B; border-radius: 12px; padding: 24px; margin-bottom: 24px;">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 15px;">
-                        <div>
-                            <span style="background-color: #1E293B; color: #38BDF8; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 600;">{dossie.get('setor', 'Setor')}</span>
-                            <span style="background-color: #064E3B; color: #6EE7B7; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; margin-left: 8px;">{dossie.get('status_processual', 'Em Andamento')}</span>
-                            <h2 style="margin: 10px 0 6px 0; font-size: 1.8rem;">{dossie.get('nome_razao_social')}</h2>
-                            <p style="color: #94A3B8; margin: 0; font-size: 0.95rem;">
-                                CNPJ Raiz: <b>{dossie.get('cnpj') or 'Não Informado'}</b> • Foro: <b>{dossie.get('vara_comarca')}</b>
-                            </p>
-                        </div>
-                        <div style="text-align: right;">
-                            <div style="font-size: 0.85rem; color: #94A3B8; text-transform: uppercase;">Passivo Concursal Declarado</div>
-                            <div style="font-size: 2.1rem; font-weight: 800; color: #38BDF8;">
-                                R$ {dossie.get('valor_causa', 0) / 1e9:.2f} B
-                            </div>
-                            <div style="font-size: 0.85rem; color: #64748B;">Distribuição: {dossie.get('data_distribuicao') or 'Recente'}</div>
-                        </div>
-                    </div>
-                    <hr style="border: 0; border-top: 1px solid #1E293B; margin: 18px 0;">
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px;">
-                        <div>
-                            <span style="color: #64748B; font-size: 0.8rem;">PROCESSO JUDICIAL (CNJ)</span>
-                            <div style="font-size: 0.95rem; font-weight: 600; color: #F8FAFC;">{dossie.get('numero_cnj')}</div>
-                        </div>
-                        <div>
-                            <span style="color: #64748B; font-size: 0.8rem;">ADMINISTRADOR JUDICIAL</span>
-                            <div style="font-size: 0.95rem; font-weight: 600; color: #F8FAFC;">{dossie.get('administrador_judicial')}</div>
-                        </div>
-                        <div>
-                            <span style="color: #64748B; font-size: 0.8rem;">TRIBUNAL</span>
-                            <div style="font-size: 0.95rem; font-weight: 600; color: #F8FAFC;">{dossie.get('tribunal')}</div>
-                        </div>
-                        <div>
-                            <span style="color: #64748B; font-size: 0.8rem;">PORTAL OFICIAL DOS AUTOS</span>
-                            <div><a href="{dossie.get('url_detalhe')}" target="_blank" style="color: #38BDF8; font-size: 0.9rem; text-decoration: none;">Acessar Portal do Caso ↗</a></div>
-                        </div>
-                    </div>
+                <div class="kpi-card">
+                    <div class="kpi-title">Marcos do Caso</div>
+                    <div class="kpi-value">{total_marcos_caso}</div>
+                    <div class="kpi-subtitle">Atos registrados na cronologia</div>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
-            
-            # Análise da Composição do Passivo (Classes do QGC)
-            resumo_credores = dossie.get("resumo_credores", {})
-            totais_classe = resumo_credores.get("totais_por_classe", {})
-            
-            st.markdown("#### ⚖️ Estrutura e Classes do Passivo (Quadro Geral de Credores)")
-            if totais_classe:
-                soma_total = sum(totais_classe.values()) or 1.0
-                c_col1, c_col2 = st.columns([3, 2])
-                with c_col1:
-                    df_classes = pd.DataFrame([
-                        {"Classe": k, "Valor (R$)": v, "Percentual (%)": (v / soma_total) * 100}
-                        for k, v in totais_classe.items()
-                    ])
-                    
-                    fig_classes = px.bar(
-                        df_classes,
-                        x="Classe",
-                        y="Valor (R$)",
-                        color="Classe",
-                        text="Valor (R$)",
-                        color_discrete_sequence=["#3B82F6", "#10B981", "#F59E0B", "#8B5CF6"],
+        with mk2:
+            st.markdown(
+                f"""
+                <div class="kpi-card">
+                    <div class="kpi-title">Documentos CVM</div>
+                    <div class="kpi-value">{marcos_cvm}</div>
+                    <div class="kpi-subtitle">Fatos Relevantes & IPE</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with mk3:
+            st.markdown(
+                f"""
+                <div class="kpi-card">
+                    <div class="kpi-title">Decisões Judiciais</div>
+                    <div class="kpi-value">{marcos_juizo}</div>
+                    <div class="kpi-subtitle">Despachos e sentenças</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with mk4:
+            st.markdown(
+                f"""
+                <div class="kpi-card">
+                    <div class="kpi-title">Peças do AJ</div>
+                    <div class="kpi-value">{marcos_aj}</div>
+                    <div class="kpi-subtitle">RMAs, Editais e Relatórios</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # Abas internas da página dedicada: Cronologia Visual vs Repositório de Documentos
+        subtab_cronologia, subtab_docs, subtab_todos_docs = st.tabs([
+            "🕒 Cronologia Visual dos Atos (Timeline)",
+            "📁 Peças e Documentos deste Caso",
+            "🌐 Repositório Geral de Documentos CVM & Peças (Todos os Casos)",
+        ])
+
+        with subtab_cronologia:
+            # Filtrar linha do tempo por emissor
+            linha_filtrada = linha_tempo_bruta
+            if "Judiciário" in filtro_orgao:
+                linha_filtrada = [m for m in linha_filtrada if m.get("autor") == "JUIZO"]
+            elif "CVM" in filtro_orgao:
+                linha_filtrada = [m for m in linha_filtrada if m.get("autor") == "CVM" or "CVM" in m.get("tipo_evento", "")]
+            elif "Administrador" in filtro_orgao:
+                linha_filtrada = [m for m in linha_filtrada if m.get("autor") == "AJ"]
+            elif "Recuperanda" in filtro_orgao:
+                linha_filtrada = [m for m in linha_filtrada if m.get("autor") == "RECUPERANDA"]
+
+            if not linha_filtrada:
+                st.info("Nenhum marco encontrado para o filtro de emissor selecionado.")
+            else:
+                st.markdown(f"Exibindo **{len(linha_filtrada)} atos processuais e comunicados**:")
+
+                for m in linha_filtrada:
+                    autor = m.get("autor", "AJ")
+                    tipo = m.get("tipo_evento", "")
+                    badge_class = "badge-aj"
+                    icone_autor = "📋"
+
+                    if autor == "JUIZO":
+                        badge_class = "badge-juizo"
+                        icone_autor = "🏛️"
+                    elif autor == "CVM" or "CVM" in tipo:
+                        badge_class = "badge-cvm"
+                        icone_autor = "🏢"
+                    elif autor == "RECUPERANDA":
+                        badge_class = "badge-recuperanda"
+                        icone_autor = "💼"
+                    elif autor == "CREDOR":
+                        badge_class = "badge-credor"
+                        icone_autor = "💳"
+
+                    # Resolução do link
+                    numero_cnj = dossie.get("numero_cnj", "") if dossie else ""
+                    tribunal = dossie.get("tribunal", "") if dossie else ""
+                    slug_emp = dossie.get("empresa_slug", "") if dossie else ""
+                    url_resolvida = resolver_link_documento_marco(
+                        url_existente=m.get("url_documento", ""),
+                        numero_cnj=numero_cnj,
+                        tribunal=tribunal,
+                        empresa_slug=slug_emp,
+                        tipo_evento=tipo,
+                        autor=autor,
                     )
-                    fig_classes.update_layout(
-                        plot_bgcolor="rgba(0,0,0,0)",
-                        paper_bgcolor="rgba(0,0,0,0)",
-                        font=dict(color="#E2E8F0"),
-                        showlegend=False,
-                        margin=dict(l=10, r=10, t=10, b=10),
-                    )
-                    fig_classes.update_traces(texttemplate='R$ %{text:,.2f}', textposition='outside')
-                    st.plotly_chart(fig_classes, use_container_width=True)
-                    
-                with c_col2:
-                    linhas_tabela = "".join(
-                        f'<tr style="border-bottom: 1px solid #1E293B;">'
-                        f'<td style="padding: 8px 6px;"><b>{k}</b></td>'
-                        f'<td style="padding: 8px 6px; text-align: right; color: #38BDF8;">R$ {v:,.2f}</td>'
-                        f'</tr>'
-                        for k, v in totais_classe.items()
-                    )
+
+                    # Botões de Ação com estilo conforme o órgão
+                    botoes_html = ""
+                    if autor == "CVM" or "CVM" in tipo:
+                        botoes_html += f"<a href='{url_resolvida}' target='_blank' class='btn-cvm'>🏢 Consultar Documento na CVM ↗</a>"
+                    elif autor == "JUIZO" or autor == "RECUPERANDA":
+                        botoes_html += f"<a href='{url_resolvida}' target='_blank' class='btn-tribunal'>🏛️ Consultar Processo no {tribunal or 'Tribunal'} ↗</a>"
+                    elif autor == "AJ":
+                        botoes_html += f"<a href='{url_resolvida}' target='_blank' class='btn-aj'>📋 Acessar Portal do Administrador Judicial ↗</a>"
+                    else:
+                        botoes_html += f"<a href='{url_resolvida}' target='_blank' class='btn-tribunal'>📄 Visualizar Documento Oficial ↗</a>"
+
                     st.markdown(
                         f"""
-                        <div style="background-color: #131D31; border: 1px solid #1E293B; border-radius: 8px; padding: 18px;">
-                            <h4 style="margin-top: 0;">Detalhamento por Classe</h4>
-                            <table style="width: 100%; font-size: 0.9rem; border-collapse: collapse;">
-                                <thead>
-                                    <tr style="border-bottom: 1px solid #334155; color: #94A3B8; text-align: left;">
-                                        <th style="padding: 6px;">Classe</th>
-                                        <th style="padding: 6px; text-align: right;">Total Declarado</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {linhas_tabela}
-                                </tbody>
-                            </table>
+                        <div class="timeline-item">
+                            <div class="timeline-dot"></div>
+                            <div class="timeline-card">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                    <span style="color: #94A3B8; font-size: 0.9rem; font-weight: 600;">📅 {m.get('data_evento')}</span>
+                                    <span class="{badge_class}">{icone_autor} {autor}</span>
+                                </div>
+                                <h4 style="margin: 4px 0 8px 0; color: #F8FAFC; font-size: 1.1rem;">{m.get('titulo')}</h4>
+                                <p style="color: #CBD5E1; font-size: 0.92rem; line-height: 1.5; margin-bottom: 8px;">
+                                    {m.get('descricao') or 'Ato registrado nos autos principais do processo.'}
+                                </p>
+                                <div>
+                                    {botoes_html}
+                                </div>
+                            </div>
                         </div>
                         """,
                         unsafe_allow_html=True,
                     )
+
+        with subtab_docs:
+            st.markdown(f"#### 📁 Documentos e Peças Catalogados de `{caso_escolhido}`")
+            if not documentos_processo:
+                st.info("Nenhum arquivo digital indexado individualmente para este processo ainda.")
             else:
-                st.info("Decomposição detalhada de classes do QGC em fase de habilitação pelo Administrador Judicial.")
+                for doc in documentos_processo:
+                    col_d1, col_d2, col_d3 = st.columns([5, 2, 2])
+                    with col_d1:
+                        st.markdown(f"**📄 {doc.get('titulo')}**")
+                        st.caption(f"Identificador: `{doc.get('slug_documento', 'N/A')}`")
+                    with col_d2:
+                        cat = doc.get("categoria", "OUTROS")
+                        if "CVM" in cat:
+                            st.markdown(f"<span class='badge-cvm'>{cat}</span>", unsafe_allow_html=True)
+                        else:
+                            st.markdown(f"<span class='badge-juizo'>{cat}</span>", unsafe_allow_html=True)
+                    with col_d3:
+                        url_doc = doc.get("url_download") or resolver_link_tribunal(dossie.get("numero_cnj"), dossie.get("tribunal"))
+                        st.markdown(f"<a href='{url_doc}' target='_blank' class='btn-tribunal' style='margin-top:0;'>Abrir Peça ↗</a>", unsafe_allow_html=True)
+                    st.markdown("<hr style='margin: 8px 0; border-color: #1E293B;'>", unsafe_allow_html=True)
+
+        with subtab_todos_docs:
+            st.markdown("#### 🌐 Repositório Geral de Documentos CVM & Peças dos Tribunais")
+            termo_doc = st.text_input("Filtrar documentos por palavra-chave (ex: Fato Relevante, PRJ, AGC, Homologação)", placeholder="Digite um termo para pesquisar...")
+            filtro_cat = st.selectbox("Categoria de Documento:", ["Todos", "CVM_FATO_RELEVANTE", "INICIAL", "DECISAO", "PRJ", "AGC", "RMA", "QGC", "OUTROS"])
+
+            docs_gerais = banco.obter_todos_documentos(limite=150, busca=termo_doc, categoria=filtro_cat)
+            st.markdown(f"Localizados **{len(docs_gerais)} documentos** no acervo:")
+
+            if docs_gerais:
+                df_docs = pd.DataFrame(docs_gerais)
+                df_docs_show = df_docs[[
+                    "titulo", "categoria", "nome_razao_social", "tribunal", "numero_cnj", "url_download"
+                ]].rename(columns={
+                    "titulo": "Título do Documento / Peça",
+                    "categoria": "Categoria",
+                    "nome_razao_social": "Recuperanda",
+                    "tribunal": "Tribunal / Órgão",
+                    "numero_cnj": "Número CNJ",
+                    "url_download": "Link de Acesso Oficial",
+                })
+                st.dataframe(
+                    df_docs_show,
+                    column_config={
+                        "Link de Acesso Oficial": st.column_config.LinkColumn(
+                            "Link de Acesso Oficial",
+                            display_text="Acessar Documento ↗",
+                        ),
+                    },
+                    use_container_width=True,
+                    height=450,
+                )
 
 
 # ==============================================================================
-# TAB 3: LINHA DO TEMPO DE PEÇAS PRINCIPAIS
+# PÁGINA 3: MANIFESTAÇÕES & RELATÓRIOS DO AJ
 # ==============================================================================
-with tab3:
-    st.markdown("### ⏳ Cronologia Processual e Peças Relevantes")
-    st.caption("Evolução dos atos do processo, desde a Petição Inicial até Deliberações da AGC e Sentenças.")
-    
-    if caso_selecionado and processos_filtrados:
-        proc_id = opcoes_casos[caso_selecionado]
-        timeline = banco.obter_linha_do_tempo(proc_id)
-        
-        if not timeline:
-            st.info("Nenhum evento registrado na linha do tempo deste caso.")
-        else:
-            st.markdown(f"Exibindo **{len(timeline)} marcos cronológicos** de `{caso_selecionado}`:")
-            
-            for m in timeline:
-                autor = m.get("autor", "AJ")
-                badge_class = "badge-aj"
-                if autor == "JUIZO":
-                    badge_class = "badge-juizo"
-                elif autor == "RECUPERANDA":
-                    badge_class = "badge-recuperanda"
-                elif autor == "CREDOR":
-                    badge_class = "badge-credor"
-                    
-                url_doc = m.get("url_documento", "")
-                link_btn = f"<a href='{url_doc}' target='_blank' style='display: inline-block; margin-top: 10px; background-color: #2563EB; color: white; padding: 5px 14px; border-radius: 6px; text-decoration: none; font-size: 0.8rem; font-weight: 600;'>📄 Visualizar Peça Oficial ↗</a>" if url_doc else ""
-                
+elif pagina_selecionada == "📑 Relatórios & Manifestações do AJ":
+    st.markdown(
+        """
+        <div style="margin-bottom: 24px;">
+            <h1 style="margin-bottom: 4px;">Relatórios Mensais de Atividades (RMAs) e Manifestações do AJ</h1>
+            <p style="color: #94A3B8; font-size: 1.05rem; margin-top: 0;">
+                Auditoria de despesas, caixa operacional, faturamento e cumprimento de obrigações sob fiscalização do Administrador Judicial.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    marcos_aj = banco.obter_marcos_por_tipo("RMA_AJ", limite=100)
+    if not marcos_aj:
+        st.info("Nenhum relatório de atividade do AJ registrado na base no momento.")
+    else:
+        st.markdown(f"Exibindo **{len(marcos_aj)} relatórios e manifestações** emitidos pelos Administradores Judiciais:")
+
+        col_aj1, col_aj2 = st.columns([1, 1])
+        for idx, r in enumerate(marcos_aj):
+            target_col = col_aj1 if idx % 2 == 0 else col_aj2
+            with target_col:
+                link_relatorio = r.get("url_documento") or resolver_link_tribunal(r.get("numero_cnj"), r.get("tribunal"))
                 st.markdown(
                     f"""
-                    <div class="timeline-item">
-                        <div class="timeline-dot"></div>
-                        <div class="timeline-card">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                                <span style="color: #94A3B8; font-size: 0.85rem; font-weight: 600;">📅 {m.get('data_evento')}</span>
-                                <span class="{badge_class}">{autor}</span>
-                            </div>
-                            <h4 style="margin: 4px 0 8px 0; color: #F8FAFC;">{m.get('titulo')}</h4>
-                            <p style="color: #CBD5E1; font-size: 0.9rem; margin-bottom: 0;">
-                                {m.get('descricao') or 'Ato registrado nos autos principais do processo.'}
-                            </p>
-                            {link_btn}
+                    <div style="background-color: #131D31; border: 1px solid #1E293B; border-radius: 10px; padding: 20px; margin-bottom: 16px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span class="badge-aj">📋 Relatório Mensal (RMA)</span>
+                            <span style="color: #94A3B8; font-size: 0.85rem;">📅 {r.get('data_evento')}</span>
+                        </div>
+                        <h4 style="margin: 6px 0; color: #F8FAFC;">{r.get('nome_razao_social')}</h4>
+                        <div style="color: #38BDF8; font-size: 0.85rem; margin-bottom: 8px;">
+                            <strong>AJ:</strong> {r.get('administrador_judicial') or 'Não informado'} • <strong>Tribunal:</strong> {r.get('tribunal')}
+                        </div>
+                        <p style="color: #CBD5E1; font-size: 0.9rem; line-height: 1.4;">
+                            {r.get('descricao') or 'Relatório mensal contendo demonstrações contábeis e fiscais do período.'}
+                        </p>
+                        <div style="margin-top: 12px;">
+                            <a href="{link_relatorio}" target="_blank" class="btn-aj">Acessar Peça / Portal do AJ ↗</a>
                         </div>
                     </div>
                     """,
@@ -584,96 +711,129 @@ with tab3:
 
 
 # ==============================================================================
-# TAB 4: RELATÓRIOS DO ADMINISTRADOR JUDICIAL (RMAs)
+# PÁGINA 4: QUADRO DE CREDORES & DÍVIDAS
 # ==============================================================================
-with tab4:
-    st.markdown("### 📑 Acompanhamento e Manifestações do AJ")
+elif pagina_selecionada == "💳 Quadro de Credores & Dívidas":
     st.markdown(
         """
-        O **Relatório Mensal de Atividades (RMA)** e as manifestações periódicas do Administrador Judicial são
-        os instrumentos primordiais de auditoria financeira, operacional e contábil das recuperandas,
-        apresentando faturamento real, queima de caixa, cumprimento das deliberações da AGC e adimplemento das parcelas do plano.
-        """
+        <div style="margin-bottom: 24px;">
+            <h1 style="margin-bottom: 4px;">Decomposição de Passivos e Quadro Geral de Credores (QGC)</h1>
+            <p style="color: #94A3B8; font-size: 1.05rem; margin-top: 0;">
+                Detalhamento dos créditos concursais segregados pelas 4 Classes da Lei 11.101/2005 e análise de concentração de risco.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
-    
-    # Query otimizada: buscar marcos RMA/Manifestação em uma única consulta
-    rmas_encontrados = banco.obter_marcos_por_tipo(
-        tipos_evento=["RMA_AJ", "MANIFESTACAO_AJ"],
-        tribunal=tribunal_param,
-        setor=setor_param,
-        busca=termo_busca,
-    )
-    # Filtrar por AJ se selecionado
-    if filtro_aj != "Todos":
-        rmas_encontrados = [r for r in rmas_encontrados if r.get("administrador_judicial") == filtro_aj]
 
-    if rmas_encontrados:
-        st.markdown(f"#### 🔎 {len(rmas_encontrados)} Manifestações & Relatórios Recentes Identificados")
-        for r in rmas_encontrados:
+    opcoes_casos = {f"{p['nome_razao_social']} ({p.get('tribunal', 'N/A')})": (p.get("processo_id") or p.get("id")) for p in processos_filtrados}
+    lista_nomes_casos = list(opcoes_casos.keys())
+
+    if not lista_nomes_casos:
+        st.warning("Nenhum processo encontrado para análise de credores.")
+    else:
+        caso_selecionado = st.selectbox("Selecione o Caso Concursal:", lista_nomes_casos)
+        proc_id = opcoes_casos[caso_selecionado]
+        dossie = banco.obter_dossie_processo(proc_id)
+
+        if dossie:
+            resumo_credores = dossie.get("resumo_credores", {})
+            dist_classes = resumo_credores.get("distribuicao_classes", {})
+
+            # Informações Gerais
             st.markdown(
                 f"""
-                <div style="background-color: #131D31; border: 1px solid #1E293B; border-radius: 10px; padding: 18px; margin-bottom: 14px;">
+                <div style="background-color: #131D31; border: 1px solid #1E293B; border-radius: 10px; padding: 20px; margin-bottom: 20px;">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="color: #38BDF8; font-weight: 700; font-size: 1rem;">{r['nome_razao_social']} ({r['tribunal']})</span>
-                        <span style="color: #94A3B8; font-size: 0.85rem;">📅 {r['data_evento']}</span>
+                        <h3 style="margin: 0; color: #F8FAFC;">{dossie.get('nome_razao_social')}</h3>
+                        <span style="font-size: 1.2rem; font-weight: 800; color: #38BDF8;">Passivo: R$ {dossie.get('valor_causa', 0.0):,.2f}</span>
                     </div>
-                    <div style="color: #6EE7B7; font-size: 0.85rem; font-weight: 600; margin-top: 4px;">{r['administrador_judicial']}</div>
-                    <h4 style="margin: 8px 0 6px 0;">{r['titulo']}</h4>
-                    <p style="color: #CBD5E1; font-size: 0.9rem; margin-bottom: 8px;">{r['descricao']}</p>
-                    <a href="{r['url_documento']}" target="_blank" style="color: #38BDF8; font-size: 0.85rem; text-decoration: none;">Acessar Relatório Completo ↗</a>
+                    <div style="color: #94A3B8; font-size: 0.9rem; margin-top: 8px;">
+                        CNJ: <strong>{dossie.get('numero_cnj')}</strong> • Vara: <strong>{dossie.get('vara_comarca')}</strong> • AJ: <strong>{dossie.get('administrador_judicial')}</strong>
+                    </div>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
-    else:
-        st.info("Nenhuma manifestação periódica encontrada para os filtros aplicados.")
+
+            if dist_classes and any(dist_classes.values()):
+                c_graf, c_tab = st.columns([1, 1])
+                with c_graf:
+                    df_classes = pd.DataFrame([{"Classe": k, "Valor": v} for k, v in dist_classes.items() if v > 0])
+                    fig_classes = px.pie(
+                        df_classes,
+                        values="Valor",
+                        names="Classe",
+                        hole=0.45,
+                        color_discrete_sequence=px.colors.qualitative.Bold,
+                        title="Divisão Percentual por Classe Concursal",
+                    )
+                    fig_classes.update_layout(
+                        plot_bgcolor="rgba(0,0,0,0)",
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        font=dict(color="#E2E8F0"),
+                    )
+                    st.plotly_chart(fig_classes, use_container_width=True)
+
+                with c_tab:
+                    st.markdown("#### Detalhamento das Classes")
+                    total_passivo = sum(dist_classes.values()) or 1.0
+                    for k, v in dist_classes.items():
+                        perc = (v / total_passivo) * 100
+                        val_fmt = f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+                        st.markdown(f"• **{k}**: {val_fmt} (`{perc:.1f}%`)")
+            else:
+                st.info("Quadro de credores individualizado em processamento ou agregação pelo Administrador Judicial.")
 
 
 # ==============================================================================
-# TAB 5: SIMULADOR DE CRÉDITO & DESÁGIO
+# PÁGINA 5: SIMULADOR DE CRÉDITO CONCURSAL
 # ==============================================================================
-with tab5:
-    st.markdown("### 💡 Simulador de Precificação de Créditos Estressados (Special Situations)")
-    st.caption("Calcule o valor estimado de recuperação líquida com base nas regras do Plano de Recuperação Judicial (PRJ).")
-    
-    sim_col1, sim_col2 = st.columns(2)
-    
-    with sim_col1:
-        st.markdown("#### Parâmetros da Simulação")
-        valor_face = st.number_input("Valor de Face do Crédito (R$):", min_value=1000.0, value=1000000.0, step=50000.0, format="%.2f")
-        desagio_pct = st.slider("Deságio Homologado no PRJ (%):", min_value=0, max_value=95, value=85, help="Exemplo: No caso Grupo Patense, Classe III tem deságio de 85%")
-        carencia_anos = st.slider("Prazo de Carência de Principal (Anos):", min_value=1, max_value=10, value=5)
-        taxa_desconto = st.slider("Taxa de Desconto Anual / Custo de Oportunidade (% a.a.):", min_value=5.0, max_value=30.0, value=15.0, step=0.5)
-        
-    with sim_col2:
-        st.markdown("#### Estimativa de Liquidação")
-        valor_liquido = valor_face * (1 - (desagio_pct / 100.0))
-        # VPL simplificado considerando pagamento em parcela única após carência
-        vpl = valor_liquido / ((1 + (taxa_desconto / 100.0)) ** carencia_anos)
-        preco_justo_compra = vpl * 0.70  # Margem de segurança de 30% para o fundo
-        
+elif pagina_selecionada == "💡 Simulador de Crédito Concursal":
+    st.markdown(
+        """
+        <div style="margin-bottom: 24px;">
+            <h1 style="margin-bottom: 4px;">Simulador Financeiro de Cessão de Créditos & Distressed Debt</h1>
+            <p style="color: #94A3B8; font-size: 1.05rem; margin-top: 0;">
+                Modelagem de haircut, taxa interna de retorno (TIR) e valuation para aquisição de créditos em Recuperação Judicial.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    s1, s2 = st.columns([1, 1])
+    with s1:
+        st.markdown("#### Parâmetros da Transação")
+        face_value = st.number_input("Valor de Face do Crédito (R$):", min_value=1000.0, value=5000000.0, step=100000.0)
+        desagio = st.slider("Deságio Proposto / Compra (%):", min_value=10.0, max_value=95.0, value=65.0, step=1.0)
+        prazo_anos = st.slider("Prazo Estimado de Recebimento (Anos):", min_value=1, max_value=15, value=4, step=1)
+        haircut_plano = st.slider("Haircut do Plano de RJ (% sobre o valor de face):", min_value=0.0, max_value=80.0, value=30.0, step=5.0)
+
+    with s2:
+        st.markdown("#### Resultados Projetados")
+        preco_aquisicao = face_value * (1.0 - (desagio / 100.0))
+        valor_recuperavel = face_value * (1.0 - (haircut_plano / 100.0))
+        lucro_bruto = valor_recuperavel - preco_aquisicao
+        moic = (valor_recuperavel / preco_aquisicao) if preco_aquisicao > 0 else 0.0
+        tir_anual = ((valor_recuperavel / preco_aquisicao) ** (1.0 / prazo_anos) - 1.0) * 100.0 if preco_aquisicao > 0 else 0.0
+
         st.markdown(
             f"""
-            <div style="background: linear-gradient(135deg, #131D31 0%, #0F172A 100%); border: 1px solid #1E293B; border-radius: 12px; padding: 24px;">
-                <div style="color: #94A3B8; font-size: 0.85rem; text-transform: uppercase;">Valor Nominal a Ser Pago pós-Deságio</div>
-                <div style="font-size: 1.8rem; font-weight: 800; color: #38BDF8; margin-bottom: 12px;">
-                    R$ {valor_liquido:,.2f}
-                </div>
-                
-                <div style="color: #94A3B8; font-size: 0.85rem; text-transform: uppercase;">Valor Presente Líquido (VPL Projetado)</div>
-                <div style="font-size: 1.6rem; font-weight: 700; color: #10B981; margin-bottom: 12px;">
-                    R$ {vpl:,.2f}
-                </div>
-                
-                <div style="color: #94A3B8; font-size: 0.85rem; text-transform: uppercase;">Preço-Alvo Sugerido de Cessão (Haircut Fundo)</div>
-                <div style="font-size: 1.4rem; font-weight: 700; color: #F59E0B;">
-                    R$ {preco_justo_compra:,.2f} ({preco_justo_compra / valor_face * 100:.1f}% do valor de face)
-                </div>
-                
-                <hr style="border: 0; border-top: 1px solid #1E293B; margin: 16px 0;">
-                <p style="font-size: 0.8rem; color: #64748B; margin: 0;">
-                    *Modelo indicativo para análise preliminar de compra e cessão de créditos concursais (Art. 83 da Lei 11.101/2005).
-                </p>
+            <div class="kpi-card" style="margin-bottom: 14px;">
+                <div class="kpi-title">Preço de Aquisição</div>
+                <div class="kpi-value">R$ {preco_aquisicao:,.2f}</div>
+                <div class="kpi-subtitle">Desembolso inicial</div>
+            </div>
+            <div class="kpi-card" style="margin-bottom: 14px;">
+                <div class="kpi-title">Valor Esperado a Receber</div>
+                <div class="kpi-value">R$ {valor_recuperavel:,.2f}</div>
+                <div class="kpi-subtitle">Após haircut do plano</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">Múltiplo (MOIC) / TIR Estimada</div>
+                <div class="kpi-value">{moic:.2f}x • {tir_anual:.1f}% a.a.</div>
+                <div class="kpi-subtitle">Retorno projetado em {prazo_anos} anos</div>
             </div>
             """,
             unsafe_allow_html=True,

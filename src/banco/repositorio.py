@@ -581,6 +581,7 @@ class BancoDados:
 
         sql = f"""
         SELECT
+            p.id,
             p.id as processo_id,
             p.slug as processo_slug,
             p.numero_cnj,
@@ -642,5 +643,99 @@ class BancoDados:
         dossie = dict(row)
         dossie["linha_do_tempo"] = self.obter_linha_do_tempo(processo_id)
         dossie["resumo_credores"] = self.obter_resumo_credores_processo(processo_id)
+        dossie["documentos"] = self.obter_documentos_processo(processo_id)
         return dossie
+
+    def obter_documentos_processo(
+        self,
+        processo_id: int | None = None,
+        categoria: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Recupera documentos vinculados a um processo ou filtrados por categoria."""
+        conn = self.conectar()
+        filtros = []
+        params: list[Any] = []
+
+        if processo_id is not None:
+            filtros.append("d.processo_id = ?")
+            params.append(processo_id)
+
+        if categoria:
+            filtros.append("d.categoria = ?")
+            params.append(categoria)
+
+        where_clause = f"WHERE {' AND '.join(filtros)}" if filtros else ""
+        sql = f"""
+        SELECT
+            d.id,
+            d.processo_id,
+            d.empresa_id,
+            d.slug_documento,
+            d.titulo,
+            d.categoria,
+            d.url_download,
+            d.caminho_arquivo,
+            d.total_paginas,
+            d.criado_em,
+            p.numero_cnj,
+            p.tribunal,
+            e.nome_razao_social,
+            e.slug as empresa_slug
+        FROM documentos d
+        LEFT JOIN processos p ON d.processo_id = p.id
+        LEFT JOIN empresas e ON d.empresa_id = e.id
+        {where_clause}
+        ORDER BY d.id DESC;
+        """
+        cur = conn.execute(sql, params)
+        return [dict(r) for r in cur.fetchall()]
+
+    def obter_todos_documentos(
+        self,
+        limite: int = 200,
+        busca: str = "",
+        categoria: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Recupera catálogo consolidado de documentos com busca textual e paginação."""
+        conn = self.conectar()
+        filtros = []
+        params: list[Any] = []
+
+        if busca:
+            termo = f"%{busca.strip()}%"
+            filtros.append("(d.titulo LIKE ? OR e.nome_razao_social LIKE ? OR p.numero_cnj LIKE ?)")
+            params.extend([termo, termo, termo])
+
+        if categoria and categoria != "Todos":
+            filtros.append("d.categoria = ?")
+            params.append(categoria)
+
+        where_clause = f"WHERE {' AND '.join(filtros)}" if filtros else ""
+        params.append(limite)
+
+        sql = f"""
+        SELECT
+            d.id,
+            d.processo_id,
+            d.empresa_id,
+            d.slug_documento,
+            d.titulo,
+            d.categoria,
+            d.url_download,
+            d.caminho_arquivo,
+            d.total_paginas,
+            d.criado_em,
+            p.numero_cnj,
+            p.tribunal,
+            e.nome_razao_social,
+            e.slug as empresa_slug
+        FROM documentos d
+        LEFT JOIN processos p ON d.processo_id = p.id
+        LEFT JOIN empresas e ON d.empresa_id = e.id
+        {where_clause}
+        ORDER BY d.id DESC
+        LIMIT ?;
+        """
+        cur = conn.execute(sql, params)
+        return [dict(r) for r in cur.fetchall()]
 
