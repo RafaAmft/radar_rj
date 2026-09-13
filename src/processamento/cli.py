@@ -88,6 +88,11 @@ def _criar_parser() -> argparse.ArgumentParser:
         help="Ativa o motor estruturado de Quadro Geral de Credores (QGC), gerando JSON e CSV de credores.",
     )
     parser.add_argument(
+        "--ocr",
+        action="store_true",
+        help="Executa OCR ativo nas páginas identificadas como escaneadas/sem texto.",
+    )
+    parser.add_argument(
         "--verbose",
         "-v",
         action="store_true",
@@ -96,9 +101,11 @@ def _criar_parser() -> argparse.ArgumentParser:
     return parser
 
 
-
 def processar_empresa(
-    slug: str, forcar: bool = False, limite: int | None = None
+    slug: str,
+    forcar: bool = False,
+    limite: int | None = None,
+    executar_ocr: bool = False,
 ) -> dict:
     """Varre e processa todas as pastas de PDFs de uma empresa."""
     dir_empresa_raw = DIR_DATA_RAW / slug
@@ -117,7 +124,8 @@ def processar_empresa(
     if limite:
         todos_pdfs = todos_pdfs[:limite]
 
-    extrator = ExtratorTextoPDF()
+    extrator = ExtratorTextoPDF(executar_ocr=executar_ocr)
+
     total = len(todos_pdfs)
     processados = 0
     pulados = 0
@@ -309,7 +317,7 @@ def main(argv: list[str] | None = None) -> None:
     # --------------------------------------------------------------------------
     # Fluxo Padrão: Extrator de Texto Completo & OCR
     # --------------------------------------------------------------------------
-    extrator = ExtratorTextoPDF()
+    extrator = ExtratorTextoPDF(executar_ocr=args.ocr)
 
     if args.arquivo:
         caminho = Path(args.arquivo)
@@ -317,7 +325,7 @@ def main(argv: list[str] | None = None) -> None:
             logger.error("Arquivo não encontrado: %s", caminho)
             sys.exit(1)
 
-        logger.info("Processando arquivo avulso: %s", caminho)
+        logger.info("Processando arquivo avulso: %s (OCR ativo: %s)", caminho, args.ocr)
         res = extrator.extrair_arquivo(caminho)
         destino = Path(args.dir_saida) if args.dir_saida else (DIR_DATA_PROCESSED / "_avulsos" / "textos")
         caminho_salvo = extrator.salvar_resultado(res, destino)
@@ -343,14 +351,18 @@ def main(argv: list[str] | None = None) -> None:
     logger.info("=" * 70)
     logger.info("Empresas: %s", empresas)
     logger.info("Forçar reprocessamento: %s", args.forcar)
+    logger.info("OCR ativo para páginas escaneadas: %s", args.ocr)
     if args.limite:
         logger.info("Limite por empresa: %d", args.limite)
     logger.info("=" * 70)
 
     resultados = []
     for slug in empresas:
-        res = processar_empresa(slug, forcar=args.forcar, limite=args.limite)
+        res = processar_empresa(
+            slug, forcar=args.forcar, limite=args.limite, executar_ocr=args.ocr
+        )
         resultados.append(res)
+
 
     duracao = time.time() - inicio
     logger.info("")

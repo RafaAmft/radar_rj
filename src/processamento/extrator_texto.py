@@ -19,7 +19,10 @@ from typing import Any
 
 from tqdm import tqdm
 
+from src.processamento.ocr import MotorOCR
+
 logger = logging.getLogger(__name__)
+
 
 # Raiz do projeto
 RAIZ_PROJETO = Path(__file__).resolve().parent.parent.parent
@@ -103,18 +106,27 @@ def _calcular_sha256(caminho: Path) -> str:
 
 
 class ExtratorTextoPDF:
-    """Motor de extração de texto e detecção de documentos escaneados."""
+    """Motor de extração de texto, detecção e execução de OCR em documentos PDF."""
 
-    def __init__(self, limiar_chars_ocr: int = 50, salvar_txt_junto: bool = True):
+    def __init__(
+        self,
+        limiar_chars_ocr: int = 50,
+        salvar_txt_junto: bool = True,
+        executar_ocr: bool = False,
+    ):
         """
         Args:
             limiar_chars_ocr: Número mínimo de caracteres por página para considerar
                               que possui texto vetorial útil (abaixo disso, marca OCR).
             salvar_txt_junto: Se True, além do .json estruturado salva também um .txt com
                               o texto completo limpo para buscas diretas.
+            executar_ocr: Se True, tenta transcrever ativamente as páginas identificadas
+                          como escaneadas usando o MotorOCR.
         """
         self.limiar_chars_ocr = limiar_chars_ocr
         self.salvar_txt_junto = salvar_txt_junto
+        self.executar_ocr = executar_ocr
+        self.motor_ocr = MotorOCR()
 
     def extrair_arquivo(self, caminho_pdf: str | Path) -> ResultadoExtracao:
         """
@@ -172,6 +184,24 @@ class ExtratorTextoPDF:
             # Critério para OCR: texto muito curto ou vazio com imagens presentes
             requer_ocr = (num_chars < self.limiar_chars_ocr) and (imagens > 0 or num_chars == 0)
 
+            # Executar OCR ativamente se habilitado
+            if requer_ocr and self.executar_ocr:
+                logger.debug(
+                    "Tentando OCR na página %d/%d (%s)...",
+                    num_pag + 1,
+                    total_paginas,
+                    caminho.name,
+                )
+                texto_ocr = self.motor_ocr.extrair_texto_pagina(pagina)
+                if texto_ocr:
+                    texto_ocr_norm = normalizar_texto(texto_ocr)
+                    if texto_ocr_norm:
+                        texto_normalizado = texto_ocr_norm
+                        num_chars = len(texto_normalizado)
+                        if num_chars >= self.limiar_chars_ocr:
+                            requer_ocr = False
+
+
             if requer_ocr:
                 paginas_requerem_ocr.append(num_pag + 1)
 
@@ -184,6 +214,7 @@ class ExtratorTextoPDF:
                     texto=texto_normalizado,
                 )
             )
+
             textos_paginas.append(texto_normalizado)
 
         doc.close()
