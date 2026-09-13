@@ -52,14 +52,16 @@ administradores_judiciais:
     nome: "Brizola e Japur Administração Judicial"
     razao_social: "Brizola e Japur Administração Judicial"
     website: "https://brizolaejapur.com.br"
-    url_processos: "https://brizolaejapur.com.br"
+    url_processos: "https://api.brizolaejapur.com.br/api/clients"
     estados_principais: ["RS", "SC", "PR"]
-    setores_destaque: ["Indústria", "Alimentos", "Cooperativas", "Varejo"]
-    status_integracao: "em_analise"
-    viabilidade: "media"
-    arquitetura: "WordPress / Cloudflare"
-    barreiras: "Requer descoberta da nova rota de processos após redesign"
-    volume_identificado: "Principal administrador judicial da Região Sul"
+    setores_destaque: ["Indústria", "Alimentos", "Cooperativas", "Varejo", "Agronegócio"]
+    status_integracao: "implementado"
+    viabilidade: "muito_alta"
+    arquitetura: "API REST JSON pública + CDN DigitalOcean Spaces"
+    barreiras: "Nenhuma (Zero login, zero captcha, PDFs diretos em CDN)"
+    volume_identificado: "384 processos catalogados e milhares de peças públicas"
+    modulo: "src.ingestao.aj.brizola"
+
 
   - slug: "inocencio_de_paula"
     nome: "Inocêncio de Paula Sociedade de Advogados"

@@ -1,0 +1,28 @@
+# ==============================================================================
+# Configuração da Fonte: Brizola e Japur Administração Judicial
+# Radar de Oportunidades em Recuperação de Ativos
+# ==============================================================================
+
+nome: "Brizola e Japur Administração Judicial"
+slug: "aj_brizola"
+tipo: "administrador_judicial"
+
+urls:
+  base: "https://brizolaejapur.com.br"
+  api_clients: "https://api.brizolaejapur.com.br/api/clients"
+  api_client_detail: "https://api.brizolaejapur.com.br/api/clients/{id}"
+
+delay_entre_requisicoes: 1.0
+
+estados:
+  - "RS"
+  - "SC"
+  - "PR"
+
+categorias_monitoradas:
+  - "QGC"      # Quadro Geral de Credores / Relação de Credores
+  - "PRJ"      # Plano de Recuperação Judicial / Modificativo
+  - "RMA"      # Relatório Mensal de Atividades
+  - "AGC"      # Assembleia Geral de Credores / Atas
+  - "EDITAL"   # Editais de Convocação e Leilões de Ativos
+  - "OUTROS"   # Petição Inicial, Deferimento, etc.
