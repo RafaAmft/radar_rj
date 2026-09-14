@@ -25,6 +25,10 @@ class MovimentacaoProcessual:
     codigo_cnj: int | None = None
     complemento: str = ""
     orgao_julgador: str = ""
+    tipo_evento: str = ""  # DECISAO, DESPACHO, MANIFESTACAO_AJ, PRJ, AGC, HOMOLOGACAO, PETICAO, OUTROS
+    autor: str = ""  # JUIZO, AJ, RECUPERANDA, CREDOR, MP
+    documento_id: str = ""
+    relevante: bool = True
 
 
 @dataclass
