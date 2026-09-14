@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS processos (
     tipo_processo TEXT DEFAULT 'recuperacao_judicial', -- 'recuperacao_judicial', 'recuperacao_extrajudicial', 'falencia'
     url_detalhe TEXT,
     valor_causa REAL DEFAULT 0.0,
+    passivo_declarado REAL DEFAULT 0.0,
     tribunal TEXT,
     status_processual TEXT DEFAULT 'Em Andamento',
     data_distribuicao TEXT,

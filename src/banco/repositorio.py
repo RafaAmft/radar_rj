@@ -73,6 +73,8 @@ class BancoDados:
                 conn.execute("ALTER TABLE processos ADD COLUMN status_processual TEXT DEFAULT 'Em Andamento';")
             if "data_distribuicao" not in cols:
                 conn.execute("ALTER TABLE processos ADD COLUMN data_distribuicao TEXT;")
+            if "passivo_declarado" not in cols:
+                conn.execute("ALTER TABLE processos ADD COLUMN passivo_declarado REAL DEFAULT 0.0;")
         logger.info("Schema do banco de dados inicializado em: %s", self.caminho)
 
     # --------------------------------------------------------------------------
@@ -128,6 +130,7 @@ class BancoDados:
         tribunal: str = "",
         status_processual: str = "Em Andamento",
         data_distribuicao: str = "",
+        passivo_declarado: float = 0.0,
     ) -> int:
         """Insere ou atualiza um processo judicial pelo slug único."""
         conn = self.conectar()
@@ -136,15 +139,16 @@ class BancoDados:
                 """
                 INSERT INTO processos (
                     empresa_id, slug, numero_cnj, vara_comarca, administrador_judicial,
-                    tipo_processo, url_detalhe, valor_causa, tribunal, status_processual, data_distribuicao
+                    tipo_processo, url_detalhe, valor_causa, passivo_declarado, tribunal, status_processual, data_distribuicao
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(slug) DO UPDATE SET
                     numero_cnj = COALESCE(NULLIF(excluded.numero_cnj, ''), processos.numero_cnj),
                     vara_comarca = COALESCE(NULLIF(excluded.vara_comarca, ''), processos.vara_comarca),
                     administrador_judicial = COALESCE(NULLIF(excluded.administrador_judicial, ''), processos.administrador_judicial),
                     url_detalhe = COALESCE(NULLIF(excluded.url_detalhe, ''), processos.url_detalhe),
                     valor_causa = CASE WHEN excluded.valor_causa > 0 THEN excluded.valor_causa ELSE processos.valor_causa END,
+                    passivo_declarado = CASE WHEN excluded.passivo_declarado > 0 THEN excluded.passivo_declarado ELSE processos.passivo_declarado END,
                     tribunal = COALESCE(NULLIF(excluded.tribunal, ''), processos.tribunal),
                     status_processual = COALESCE(NULLIF(excluded.status_processual, ''), processos.status_processual),
                     data_distribuicao = COALESCE(NULLIF(excluded.data_distribuicao, ''), processos.data_distribuicao)
@@ -159,6 +163,7 @@ class BancoDados:
                     tipo_processo,
                     url_detalhe,
                     valor_causa,
+                    passivo_declarado,
                     tribunal,
                     status_processual,
                     data_distribuicao,
@@ -592,6 +597,7 @@ class BancoDados:
             p.status_processual,
             p.data_distribuicao,
             p.valor_causa,
+            COALESCE(NULLIF(p.passivo_declarado, 0.0), p.valor_causa) as passivo_declarado,
             p.url_detalhe,
             e.id as empresa_id,
             e.nome_razao_social,
@@ -603,7 +609,7 @@ class BancoDados:
         FROM processos p
         JOIN empresas e ON p.empresa_id = e.id
         WHERE {clausula_where}
-        ORDER BY p.valor_causa DESC
+        ORDER BY COALESCE(NULLIF(p.passivo_declarado, 0.0), p.valor_causa) DESC
         LIMIT ?;
         """
         cur = conn.execute(sql, params)
@@ -625,6 +631,7 @@ class BancoDados:
                 p.status_processual,
                 p.data_distribuicao,
                 p.valor_causa,
+                COALESCE(NULLIF(p.passivo_declarado, 0.0), p.valor_causa) as passivo_declarado,
                 p.url_detalhe,
                 e.id as empresa_id,
                 e.nome_razao_social,

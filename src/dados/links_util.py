@@ -99,6 +99,9 @@ def resolver_link_cvm(codigo_cvm: str | None, categoria: str = "IPE") -> str:
     return f"https://rad.cvm.gov.br/ENET/frmConsultaExternaCVM.aspx?codigoCVM={cod_limpo}"
 
 
+from src.dados.cvm_resolver import cvm_resolver
+
+
 def resolver_link_documento_marco(
     url_existente: str | None,
     numero_cnj: str | None = None,
@@ -106,6 +109,7 @@ def resolver_link_documento_marco(
     empresa_slug: str | None = None,
     tipo_evento: str | None = None,
     autor: str | None = None,
+    cnpj: str | None = None,
 ) -> str:
     """
     Valida e resolve a melhor URL para um marco ou documento processual.
@@ -143,8 +147,13 @@ def resolver_link_documento_marco(
     # Se for evento da CVM ou empresa aberta
     if autor == "CVM" or (tipo_evento and "CVM" in tipo_evento.upper()):
         cod_cvm = ""
-        if empresa_slug and empresa_slug in COMPANHIAS_CVM:
+        # 1. Resolução dinâmica inteligente via CvmResolver
+        info_cvm = cvm_resolver.resolver(cnpj=cnpj, slug=empresa_slug, termo_busca=empresa_slug)
+        if info_cvm:
+            cod_cvm = info_cvm.get("codigo_cvm", "")
+        elif empresa_slug and empresa_slug in COMPANHIAS_CVM:
             cod_cvm = COMPANHIAS_CVM[empresa_slug].get("codigo_cvm", "")
+
         return resolver_link_cvm(cod_cvm)
 
     # Caso padrão: link do Tribunal correspondente pelo CNJ
@@ -167,6 +176,7 @@ def obter_acao_externa_marco(
     numero_cnj = dossie.get("numero_cnj") if dossie else None
     tribunal = dossie.get("tribunal") if dossie else None
     empresa_slug = dossie.get("empresa_slug") if dossie else None
+    cnpj = (dossie.get("cnpj") or dossie.get("cnpj_raiz")) if dossie else None
 
     url = resolver_link_documento_marco(
         url_existente=marco.get("url_documento"),
@@ -175,6 +185,7 @@ def obter_acao_externa_marco(
         empresa_slug=empresa_slug,
         tipo_evento=tipo,
         autor=autor,
+        cnpj=cnpj,
     )
 
     if autor == "CVM" or "CVM" in tipo:

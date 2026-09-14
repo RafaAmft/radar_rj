@@ -2,6 +2,7 @@
 data/raw/
 data/processed/
 data/curated/
+data/*.csv
 *.db
 *.sqlite
 *.sqlite3

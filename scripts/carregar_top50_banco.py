@@ -69,6 +69,7 @@ def carregar_catalogo_para_banco(db_path: str = "data/radar.db") -> dict[str, in
             tipo_processo="recuperacao_judicial",
             url_detalhe=url_detalhe,
             valor_causa=caso.get("valor_causa", 0.0),
+            passivo_declarado=caso.get("passivo_declarado", caso.get("valor_causa", 0.0)),
             tribunal=caso.get("tribunal", ""),
             status_processual=caso.get("status_processual", "Em Andamento"),
             data_distribuicao=caso.get("data_distribuicao", ""),

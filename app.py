@@ -26,6 +26,7 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from src.banco.repositorio import BancoDados
+from src.dados.cvm_resolver import obter_info_cvm
 from src.dados.links_util import (
     COMPANHIAS_CVM,
     resolver_link_cvm,
@@ -300,9 +301,10 @@ if pagina_selecionada == "📊 Visão Geral & Ranking Top 50":
     )
 
     # Cards KPI
-    passivo_total = sum(p["valor_causa"] for p in processos_filtrados) if processos_filtrados else 0.0
+    passivo_global = sum(p.get("passivo_declarado", 0.0) or p.get("valor_causa", 0.0) for p in processos_filtrados) if processos_filtrados else 0.0
+    valor_causa_total = sum(p.get("valor_causa", 0.0) for p in processos_filtrados) if processos_filtrados else 0.0
     casos_ativos = len(processos_filtrados)
-    passivo_medio = passivo_total / casos_ativos if casos_ativos > 0 else 0.0
+    passivo_medio = passivo_global / casos_ativos if casos_ativos > 0 else 0.0
     ajs_ativos = len(set(p.get("administrador_judicial") for p in processos_filtrados if p.get("administrador_judicial")))
 
     c1, c2, c3, c4 = st.columns(4)
@@ -310,9 +312,9 @@ if pagina_selecionada == "📊 Visão Geral & Ranking Top 50":
         st.markdown(
             f"""
             <div class="kpi-card">
-                <div class="kpi-title">Volume Total de Dívida</div>
-                <div class="kpi-value">R$ {passivo_total / 1e9:.1f}B</div>
-                <div class="kpi-subtitle">Passivo concursal agregado</div>
+                <div class="kpi-title">Passivo Concursal Global</div>
+                <div class="kpi-value">R$ {passivo_global / 1e9:.1f}B</div>
+                <div class="kpi-subtitle">Total QGC / dívida declarada</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -321,9 +323,9 @@ if pagina_selecionada == "📊 Visão Geral & Ranking Top 50":
         st.markdown(
             f"""
             <div class="kpi-card">
-                <div class="kpi-title">Casos Filtrados</div>
-                <div class="kpi-value">{casos_ativos}</div>
-                <div class="kpi-subtitle">RJs sob monitoramento</div>
+                <div class="kpi-title">Volume da Causa em Juízo</div>
+                <div class="kpi-value">R$ {valor_causa_total / 1e9:.1f}B</div>
+                <div class="kpi-subtitle">Soma das petições iniciais</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -332,9 +334,9 @@ if pagina_selecionada == "📊 Visão Geral & Ranking Top 50":
         st.markdown(
             f"""
             <div class="kpi-card">
-                <div class="kpi-title">Passivo Médio / Caso</div>
-                <div class="kpi-value">R$ {passivo_medio / 1e9:.2f}B</div>
-                <div class="kpi-subtitle">Ticket médio da amostra</div>
+                <div class="kpi-title">Casos Monitorados</div>
+                <div class="kpi-value">{casos_ativos}</div>
+                <div class="kpi-subtitle">Ticket médio: R$ {passivo_medio / 1e9:.2f}B</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -359,9 +361,9 @@ if pagina_selecionada == "📊 Visão Geral & Ranking Top 50":
         # Gráficos Analíticos
         g_col1, g_col2 = st.columns([3, 2])
         with g_col1:
-            st.markdown("#### 🏆 Top 10 Maiores Recuperações por Volume de Dívida")
+            st.markdown("#### 🏆 Top 10 Maiores Recuperações por Passivo Concursal (QGC)")
             top10 = df_filtrado.head(10).copy()
-            top10["valor_bi"] = top10["valor_causa"] / 1e9
+            top10["valor_bi"] = (top10["passivo_declarado"].fillna(0.0).replace(0.0, top10["valor_causa"])) / 1e9
 
             fig_bar = px.bar(
                 top10,
@@ -370,7 +372,7 @@ if pagina_selecionada == "📊 Visão Geral & Ranking Top 50":
                 orientation="h",
                 color="setor",
                 text="valor_bi",
-                labels={"valor_bi": "Passivo Declarado (R$ Bilhões)", "nome_razao_social": "Recuperanda / Grupo"},
+                labels={"valor_bi": "Passivo Declarado QGC (R$ Bilhões)", "nome_razao_social": "Recuperanda / Grupo"},
                 color_discrete_sequence=px.colors.qualitative.Prism,
             )
             fig_bar.update_layout(
@@ -386,10 +388,10 @@ if pagina_selecionada == "📊 Visão Geral & Ranking Top 50":
 
         with g_col2:
             st.markdown("#### 🏭 Concentração Setorial do Passivo")
-            setor_agg = df_filtrado.groupby("setor")["valor_causa"].sum().reset_index()
+            setor_agg = df_filtrado.groupby("setor")["passivo_declarado"].sum().reset_index()
             fig_pie = px.pie(
                 setor_agg,
-                values="valor_causa",
+                values="passivo_declarado",
                 names="setor",
                 hole=0.45,
                 color_discrete_sequence=px.colors.qualitative.Dark24,
@@ -404,13 +406,19 @@ if pagina_selecionada == "📊 Visão Geral & Ranking Top 50":
             st.plotly_chart(fig_pie, use_container_width=True)
 
         st.markdown("---")
-        st.markdown("### 📋 Tabela das Maiores Recuperações Judiciais")
+        st.markdown("### 📋 Tabela Comparativa de Processos (Dívida Concursal vs. Valor da Causa)")
 
-        # Exibição da tabela principal com link funcional
+        # Exibição da tabela principal com segregação clara dos valores
         df_exibicao = df_filtrado.copy()
-        df_exibicao["Valor Declarado"] = df_exibicao["valor_causa"].apply(lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+        df_exibicao["Passivo Declarado (QGC)"] = df_exibicao["passivo_declarado"].apply(
+            lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") if v else "R$ 0,00"
+        )
+        df_exibicao["Valor da Causa (Tribunal)"] = df_exibicao["valor_causa"].apply(
+            lambda v: f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") if v else "R$ 0,00"
+        )
         df_exibicao = df_exibicao[[
-            "nome_razao_social", "setor", "tribunal", "numero_cnj", "Valor Declarado",
+            "nome_razao_social", "setor", "tribunal", "numero_cnj",
+            "Passivo Declarado (QGC)", "Valor da Causa (Tribunal)",
             "administrador_judicial", "status_processual", "data_distribuicao"
         ]].rename(columns={
             "nome_razao_social": "Empresa / Grupo",
@@ -525,7 +533,50 @@ elif pagina_selecionada == "⏳ Linha do Tempo & Documentos CVM":
                 unsafe_allow_html=True,
             )
 
-        st.markdown("<br>", unsafe_allow_html=True)
+        # Banner de Identificação do Ativo e Segregação de Valores
+        cvm_info = obter_info_cvm(cnpj=dossie.get("cnpj", ""), razao_social=dossie.get("nome_razao_social", ""))
+        if cvm_info:
+            txt_ticker = f"Ticker: {cvm_info['ticker']} • " if cvm_info.get("ticker") else ""
+            ticker_badge = f"<span class='badge-cvm' style='margin-left: 8px;'>{txt_ticker}CVM: {cvm_info['codigo_cvm']}</span>"
+        else:
+            ticker_badge = ""
+
+        val_passivo_qgc = dossie.get("passivo_declarado") or dossie.get("valor_causa", 0.0)
+        passivo_qgc_fmt = f"R$ {val_passivo_qgc:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        valor_causa_fmt = f"R$ {dossie.get('valor_causa', 0.0):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+        st.markdown(
+            f"""
+            <div style="background: linear-gradient(135deg, #131D31 0%, #0F172A 100%); border: 1px solid #1E293B; border-radius: 12px; padding: 18px 24px; margin: 16px 0 20px 0;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <h3 style="margin: 0; color: #F8FAFC; font-size: 1.3rem;">{dossie.get('nome_razao_social')}</h3>
+                            {ticker_badge}
+                        </div>
+                        <div style="color: #94A3B8; font-size: 0.85rem; margin-top: 4px;">
+                            CNJ: <strong>{dossie.get('numero_cnj')}</strong> • Foro: <strong>{dossie.get('vara_comarca')}</strong> ({dossie.get('tribunal')}) • AJ: <strong>{dossie.get('administrador_judicial') or 'Não informado'}</strong>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 20px; align-items: center;">
+                        <div style="text-align: right;">
+                            <div style="font-size: 0.75rem; color: #94A3B8; text-transform: uppercase; font-weight: 600;">Passivo Concursal (QGC)</div>
+                            <div style="font-size: 1.25rem; font-weight: 800; color: #38BDF8;">{passivo_qgc_fmt}</div>
+                        </div>
+                        <div style="width: 1px; height: 36px; background-color: #334155;"></div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 0.75rem; color: #94A3B8; text-transform: uppercase; font-weight: 600;">Valor da Causa em Juízo</div>
+                            <div style="font-size: 1.25rem; font-weight: 800; color: #A78BFA;">{valor_causa_fmt}</div>
+                        </div>
+                        <div style="margin-left: 8px;">
+                            <span class="badge-juizo" style="font-size: 0.8rem; padding: 6px 12px;">{dossie.get('status_processual', 'Em Andamento')}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
         # Abas internas da página dedicada: Cronologia Visual vs Repositório de Documentos
         subtab_cronologia, subtab_docs, subtab_todos_docs = st.tabs([
@@ -672,15 +723,29 @@ elif pagina_selecionada == "💳 Quadro de Credores & Dívidas":
             dist_classes = resumo_credores.get("distribuicao_classes", {})
 
             # Informações Gerais
+            passivo_qgc_mod4 = f"R$ {dossie.get('passivo_declarado', 0.0):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            valor_causa_mod4 = f"R$ {dossie.get('valor_causa', 0.0):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
             st.markdown(
                 f"""
                 <div style="background-color: #131D31; border: 1px solid #1E293B; border-radius: 10px; padding: 20px; margin-bottom: 20px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <h3 style="margin: 0; color: #F8FAFC;">{dossie.get('nome_razao_social')}</h3>
-                        <span style="font-size: 1.2rem; font-weight: 800; color: #38BDF8;">Passivo: R$ {dossie.get('valor_causa', 0.0):,.2f}</span>
-                    </div>
-                    <div style="color: #94A3B8; font-size: 0.9rem; margin-top: 8px;">
-                        CNJ: <strong>{dossie.get('numero_cnj')}</strong> • Vara: <strong>{dossie.get('vara_comarca')}</strong> • AJ: <strong>{dossie.get('administrador_judicial')}</strong>
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                        <div>
+                            <h3 style="margin: 0; color: #F8FAFC;">{dossie.get('nome_razao_social')}</h3>
+                            <div style="color: #94A3B8; font-size: 0.9rem; margin-top: 6px;">
+                                CNJ: <strong>{dossie.get('numero_cnj')}</strong> • Foro: <strong>{dossie.get('vara_comarca')}</strong> • AJ: <strong>{dossie.get('administrador_judicial')}</strong>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 16px; align-items: center;">
+                            <div style="text-align: right;">
+                                <div style="font-size: 0.75rem; color: #94A3B8; text-transform: uppercase;">Passivo QGC</div>
+                                <div style="font-size: 1.15rem; font-weight: 800; color: #38BDF8;">{passivo_qgc_mod4}</div>
+                            </div>
+                            <div style="width: 1px; height: 30px; background-color: #334155;"></div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 0.75rem; color: #94A3B8; text-transform: uppercase;">Valor da Causa</div>
+                                <div style="font-size: 1.15rem; font-weight: 800; color: #A78BFA;">{valor_causa_mod4}</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 """,

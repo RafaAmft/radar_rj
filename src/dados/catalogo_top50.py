@@ -487,6 +487,7 @@ CATALOGO_TOP_50_RJS: list[dict[str, Any]] = [
         "vara_comarca": "1ª Vara de Falências e Recuperações Judiciais / SP",
         "numero_cnj": "1016422-34.2017.8.26.0100",
         "valor_causa": 6200000000.00,
+        "passivo_declarado": 7800000000.00,
         "administrador_judicial": "PwC (PricewaterhouseCoopers)",
         "status_processual": "Encerrada por Sentença (Cumprimento do Plano)",
         "data_distribuicao": "2017-02-23",
