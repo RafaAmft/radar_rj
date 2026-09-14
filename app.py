@@ -282,6 +282,19 @@ if filtro_aj != "Todos":
     processos_filtrados = [p for p in processos_filtrados if p.get("administrador_judicial") == filtro_aj]
 
 df_filtrado = pd.DataFrame(processos_filtrados)
+if not df_filtrado.empty:
+    if "valor_causa" not in df_filtrado.columns:
+        df_filtrado["valor_causa"] = 0.0
+    df_filtrado["valor_causa"] = pd.to_numeric(df_filtrado["valor_causa"], errors="coerce").fillna(0.0)
+
+    if "passivo_declarado" not in df_filtrado.columns:
+        df_filtrado["passivo_declarado"] = df_filtrado["valor_causa"]
+    else:
+        df_filtrado["passivo_declarado"] = pd.to_numeric(df_filtrado["passivo_declarado"], errors="coerce").fillna(0.0)
+        # Se passivo_declarado for 0.0, assume valor_causa como referência mínima
+        df_filtrado["passivo_declarado"] = df_filtrado["passivo_declarado"].mask(
+            df_filtrado["passivo_declarado"] <= 0.0, df_filtrado["valor_causa"]
+        )
 
 
 # ==============================================================================
@@ -363,7 +376,7 @@ if pagina_selecionada == "📊 Visão Geral & Ranking Top 50":
         with g_col1:
             st.markdown("#### 🏆 Top 10 Maiores Recuperações por Passivo Concursal (QGC)")
             top10 = df_filtrado.head(10).copy()
-            top10["valor_bi"] = (top10["passivo_declarado"].fillna(0.0).replace(0.0, top10["valor_causa"])) / 1e9
+            top10["valor_bi"] = top10["passivo_declarado"] / 1e9
 
             fig_bar = px.bar(
                 top10,
