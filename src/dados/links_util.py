@@ -41,6 +41,9 @@ AJS_PAGINAS_CASOS = {
     "preserva": "https://www.preservaacao.com.br/recuperacoes",
     "exm": "https://exmpartners.com.br/processos/",
     "alvarez": "https://www.alvarezandmarsal.com/expertise/restructuring-turnaround",
+    "pdg": "https://www.pdg.com.br/ri/",
+    "pdg-realty": "https://www.pdg.com.br/ri/",
+    "pwc": "https://www.pwc.com.br/",
 }
 
 # Mapeamento de Códigos CVM para companhias abertas do Radar
@@ -55,6 +58,8 @@ COMPANHIAS_CVM = {
     "agrogalaxy": {"codigo_cvm": "26000", "ticker": "AGXY3", "razao": "AgroGalaxy Participações S.A."},
     "dia": {"codigo_cvm": "", "ticker": "", "razao": "Dia Brasil Sociedade Limitada"},
     "novonor-odebrecht": {"codigo_cvm": "15102", "ticker": "", "razao": "Novonor S.A."},
+    "pdg": {"codigo_cvm": "20478", "ticker": "PDGR3", "razao": "PDG Realty S.A. Empreendimentos e Participações"},
+    "pdg-realty": {"codigo_cvm": "20478", "ticker": "PDGR3", "razao": "PDG Realty S.A. Empreendimentos e Participações"},
 }
 
 
