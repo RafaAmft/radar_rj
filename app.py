@@ -32,6 +32,7 @@ from src.dados.links_util import (
     resolver_link_documento_marco,
     resolver_link_tribunal,
 )
+from src.visualizacao.timeline_dupla import renderizar_timeline_dupla
 
 # Configuração de Página Streamlit
 st.set_page_config(
@@ -446,15 +447,10 @@ elif pagina_selecionada == "⏳ Linha do Tempo & Documentos CVM":
     opcoes_casos = {f"{p['nome_razao_social']} ({p.get('tribunal', 'N/A')} - {p.get('numero_cnj', 'S/N')})": (p.get("processo_id") or p.get("id")) for p in processos_filtrados}
     lista_nomes_casos = list(opcoes_casos.keys())
 
-    col_sel1, col_sel2, col_sel3 = st.columns([3, 2, 1.4])
+    col_sel1, col_sel2 = st.columns([4, 1.4])
     with col_sel1:
         caso_escolhido = st.selectbox("Selecione a Recuperanda / Processo Judicial:", lista_nomes_casos if lista_nomes_casos else ["Nenhum processo encontrado"])
     with col_sel2:
-        filtro_orgao = st.selectbox(
-            "Filtrar por Emissor / Órgão:",
-            ["Todos", "🏛️ Judiciário (Juízo & Decisões)", "🏢 CVM (Fatos Relevantes & Mercado)", "📋 Administrador Judicial", "🏢 Recuperanda (Petição & PRJ)"],
-        )
-    with col_sel3:
         st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
         btn_sync = st.button("🔄 Sincronizar e-SAJ", use_container_width=True, help="Consulta o Tribunal e-SAJ ao vivo e atualiza os marcos estratégicos")
 
@@ -539,86 +535,7 @@ elif pagina_selecionada == "⏳ Linha do Tempo & Documentos CVM":
         ])
 
         with subtab_cronologia:
-            # Filtrar linha do tempo por emissor
-            linha_filtrada = linha_tempo_bruta
-            if "Judiciário" in filtro_orgao:
-                linha_filtrada = [m for m in linha_filtrada if m.get("autor") == "JUIZO"]
-            elif "CVM" in filtro_orgao:
-                linha_filtrada = [m for m in linha_filtrada if m.get("autor") == "CVM" or "CVM" in m.get("tipo_evento", "")]
-            elif "Administrador" in filtro_orgao:
-                linha_filtrada = [m for m in linha_filtrada if m.get("autor") == "AJ"]
-            elif "Recuperanda" in filtro_orgao:
-                linha_filtrada = [m for m in linha_filtrada if m.get("autor") == "RECUPERANDA"]
-
-            if not linha_filtrada:
-                st.info("Nenhum marco encontrado para o filtro de emissor selecionado.")
-            else:
-                st.markdown(f"Exibindo **{len(linha_filtrada)} atos processuais e comunicados**:")
-
-                for m in linha_filtrada:
-                    autor = m.get("autor", "AJ")
-                    tipo = m.get("tipo_evento", "")
-                    badge_class = "badge-aj"
-                    icone_autor = "📋"
-
-                    if autor == "JUIZO":
-                        badge_class = "badge-juizo"
-                        icone_autor = "🏛️"
-                    elif autor == "CVM" or "CVM" in tipo:
-                        badge_class = "badge-cvm"
-                        icone_autor = "🏢"
-                    elif autor == "RECUPERANDA":
-                        badge_class = "badge-recuperanda"
-                        icone_autor = "💼"
-                    elif autor == "CREDOR":
-                        badge_class = "badge-credor"
-                        icone_autor = "💳"
-
-                    # Resolução do link
-                    numero_cnj = dossie.get("numero_cnj", "") if dossie else ""
-                    tribunal = dossie.get("tribunal", "") if dossie else ""
-                    slug_emp = dossie.get("empresa_slug", "") if dossie else ""
-                    url_resolvida = resolver_link_documento_marco(
-                        url_existente=m.get("url_documento", ""),
-                        numero_cnj=numero_cnj,
-                        tribunal=tribunal,
-                        empresa_slug=slug_emp,
-                        tipo_evento=tipo,
-                        autor=autor,
-                    )
-
-                    # Botões de Ação com estilo conforme o órgão
-                    botoes_html = ""
-                    if autor == "CVM" or "CVM" in tipo:
-                        botoes_html += f"<a href='{url_resolvida}' target='_blank' class='btn-cvm'>🏢 Consultar Documento na CVM ↗</a>"
-                    elif autor == "JUIZO" or autor == "RECUPERANDA":
-                        botoes_html += f"<a href='{url_resolvida}' target='_blank' class='btn-tribunal'>🏛️ Consultar Processo no {tribunal or 'Tribunal'} ↗</a>"
-                    elif autor == "AJ":
-                        botoes_html += f"<a href='{url_resolvida}' target='_blank' class='btn-aj'>📋 Acessar Portal do Administrador Judicial ↗</a>"
-                    else:
-                        botoes_html += f"<a href='{url_resolvida}' target='_blank' class='btn-tribunal'>📄 Visualizar Documento Oficial ↗</a>"
-
-                    st.markdown(
-                        f"""
-                        <div class="timeline-item">
-                            <div class="timeline-dot"></div>
-                            <div class="timeline-card">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                    <span style="color: #94A3B8; font-size: 0.9rem; font-weight: 600;">📅 {m.get('data_evento')}</span>
-                                    <span class="{badge_class}">{icone_autor} {autor}</span>
-                                </div>
-                                <h4 style="margin: 4px 0 8px 0; color: #F8FAFC; font-size: 1.1rem;">{m.get('titulo')}</h4>
-                                <p style="color: #CBD5E1; font-size: 0.92rem; line-height: 1.5; margin-bottom: 8px;">
-                                    {m.get('descricao') or 'Ato registrado nos autos principais do processo.'}
-                                </p>
-                                <div>
-                                    {botoes_html}
-                                </div>
-                            </div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
+            renderizar_timeline_dupla(processo_id=proc_id, dossie=dossie, db=banco)
 
         with subtab_docs:
             st.markdown(f"#### 📁 Documentos e Peças Catalogados de `{caso_escolhido}`")

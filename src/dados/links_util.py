@@ -147,3 +147,67 @@ def resolver_link_documento_marco(
         return resolver_link_tribunal(numero_cnj, tribunal)
 
     return url or "https://comunica.pje.jus.br/"
+
+
+def obter_acao_externa_marco(
+    marco: dict[str, Any],
+    dossie: dict[str, Any] | None = None,
+) -> dict[str, str]:
+    """
+    Retorna as informações completas de ação externa de um marco processual:
+    URL resolvida, rótulo amigável do botão, ícone e classes visuais CSS.
+    """
+    autor = (marco.get("autor") or "AJ").upper()
+    tipo = (marco.get("tipo_evento") or "").upper()
+    numero_cnj = dossie.get("numero_cnj") if dossie else None
+    tribunal = dossie.get("tribunal") if dossie else None
+    empresa_slug = dossie.get("empresa_slug") if dossie else None
+
+    url = resolver_link_documento_marco(
+        url_existente=marco.get("url_documento"),
+        numero_cnj=numero_cnj,
+        tribunal=tribunal,
+        empresa_slug=empresa_slug,
+        tipo_evento=tipo,
+        autor=autor,
+    )
+
+    if autor == "CVM" or "CVM" in tipo:
+        return {
+            "url": url,
+            "label": "Ver na CVM ↗",
+            "icone": "🏢",
+            "tipo": "cvm",
+            "badge_class": "badge-cvm",
+            "btn_class": "btn-cvm",
+        }
+    elif autor == "AJ":
+        return {
+            "url": url,
+            "label": "Acessar Portal do AJ ↗",
+            "icone": "📋",
+            "tipo": "aj",
+            "badge_class": "badge-aj",
+            "btn_class": "btn-aj",
+        }
+    elif autor in ("JUIZO", "RECUPERANDA", "MP", "PARTE", "CREDOR"):
+        nome_trib = tribunal or "Tribunal"
+        badge = "badge-juizo" if autor == "JUIZO" else ("badge-recuperanda" if autor == "RECUPERANDA" else "badge-credor")
+        return {
+            "url": url,
+            "label": f"Consultar no {nome_trib} ↗",
+            "icone": "🏛️",
+            "tipo": "tribunal",
+            "badge_class": badge,
+            "btn_class": "btn-tribunal",
+        }
+
+    return {
+        "url": url,
+        "label": "Consultar Documento Oficial ↗",
+        "icone": "📄",
+        "tipo": "documento",
+        "badge_class": "badge-aj",
+        "btn_class": "btn-tribunal",
+    }
+
