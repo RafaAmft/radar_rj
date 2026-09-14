@@ -446,7 +446,7 @@ elif pagina_selecionada == "⏳ Linha do Tempo & Documentos CVM":
     opcoes_casos = {f"{p['nome_razao_social']} ({p.get('tribunal', 'N/A')} - {p.get('numero_cnj', 'S/N')})": (p.get("processo_id") or p.get("id")) for p in processos_filtrados}
     lista_nomes_casos = list(opcoes_casos.keys())
 
-    col_sel1, col_sel2 = st.columns([3, 2])
+    col_sel1, col_sel2, col_sel3 = st.columns([3, 2, 1.4])
     with col_sel1:
         caso_escolhido = st.selectbox("Selecione a Recuperanda / Processo Judicial:", lista_nomes_casos if lista_nomes_casos else ["Nenhum processo encontrado"])
     with col_sel2:
@@ -454,11 +454,25 @@ elif pagina_selecionada == "⏳ Linha do Tempo & Documentos CVM":
             "Filtrar por Emissor / Órgão:",
             ["Todos", "🏛️ Judiciário (Juízo & Decisões)", "🏢 CVM (Fatos Relevantes & Mercado)", "📋 Administrador Judicial", "🏢 Recuperanda (Petição & PRJ)"],
         )
+    with col_sel3:
+        st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
+        btn_sync = st.button("🔄 Sincronizar e-SAJ", use_container_width=True, help="Consulta o Tribunal e-SAJ ao vivo e atualiza os marcos estratégicos")
 
     if not lista_nomes_casos or caso_escolhido == "Nenhum processo encontrado":
         st.warning("Nenhum processo disponível para visualização da linha do tempo.")
     else:
         proc_id = opcoes_casos[caso_escolhido]
+
+        if btn_sync:
+            with st.spinner("Consultando Tribunal e-SAJ e aplicando filtro de relevância..."):
+                from scripts.sincronizar_movimentacoes_esaj import sincronizar_processo_esaj
+                novos_marcos = sincronizar_processo_esaj(processo_id=proc_id, db_path="data/radar.db")
+                if novos_marcos > 0:
+                    st.success(f"Sucesso! {novos_marcos} novos marcos estratégicos adicionados.")
+                else:
+                    st.info("Processo já atualizado com as últimas movimentações disponíveis.")
+                st.rerun()
+
         dossie = banco.obter_dossie_processo(proc_id)
         linha_tempo_bruta = banco.obter_linha_do_tempo(proc_id)
         documentos_processo = banco.obter_documentos_processo(proc_id)
